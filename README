@@ -1,0 +1,45 @@
+qt.core.qobject.connect: QObject::connect: signal not found in TlShapeList
+qt.core.qobject.connect: QObject::connect: signal not found in TlShapeList
+qt.core.qobject.connect: QObject::connect: Parentheses expected, signal TlCanvas::vertexSelected
+qt.core.qobject.connect: QObject::connect:  (receiver name: 'MainWindow')
+
+
+SET PYTHONPATH=C:/WORK/TlAssistant/PYTHON_HOME/site-packages
+SET PATH=C:/WORK/TlAssistant/PYTHON_HOME/Python;C:/WORK/TlAssistant/PYTHON_HOME/Python/Scripts;%PYTHONPATH%/bin
+
+
+Python pip三方库安装位置
+Python的pip工具默认会将安装的三方库安装到Python的site-packages目录下。这个目录的具体位置取决于你的Python安装位置。
+
+你可以通过以下Python代码找到site-packages目录的具体位置：
+import site
+site.getsitepackages()
+这段代码会返回一个列表，列出所有的site-packages目录的路径。通常情况下，第一个路径就是你的Python三方库的安装位置。
+
+如果你想要改变默认的安装位置，可以在使用pip安装库的时候指定--target参数：
+pip install package_name --target=/path/to/directory
+
+
+1. Resnet50模型, 在线训练环境
+
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117 --target=C:/WORK/TlAssistant/PYTHON_HOME/site-packages
+
+https://download.pytorch.org/whl/cu117/torch-2.0.1%2Bcu117-cp39-cp39-win_amd64.whl
+
+pip install --target=C:/WORK/TlAssistant/PYTHON_HOME/site-packages torch-2.0.1+cu117-cp39-cp39-win_amd64.whl
+
+pip install --target=C:/WORK/TlAssistant/PYTHON_HOME/site-packages torch-2.0.1+cu117-cp39-cp39-win_amd64.whl torchvision-0.15.2+cu117-cp39-cp39-win_amd64.whl torchaudio-2.0.2+cu117-cp39-cp39-win_amd64.whl
+
+pip install --target=C:/WORK/TlAssistant/PYTHON_HOME/site-packages --upgrade tqdm-4.66.5-py3-none-any.whl
+pip install --target=C:/WORK/TlAssistant/PYTHON_HOME/site-packages --upgrade tensorboard-2.18.0-py3-none-any.whl
+pip install --target=C:/WORK/TlAssistant/PYTHON_HOME/site-packages --upgrade efficientnet_pytorch-0.7.1.tar.gz
+pip install --target=C:/WORK/TlAssistant/PYTHON_HOME/site-packages --upgrade PyYAML-6.0.2-cp39-cp39-win_amd64.whl
+
+
+
+--weights_path=resnet50.onnx
+
+
+
+tensorboard --logdir=Pytorch-Image-Classifier-Collection/output/lidian_resnet50_20240706_400 --port=6011
+
