@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TlTrainWidget</class>
+ <widget class="QWidget" name="TlTrainWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>426</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <widget class="QLineEdit" name="lineEdit1">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>20</y>
+     <width>311</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>D:/PYTHON_HOME/Python;D:/PYTHON_HOME/Python/Scripts</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit2">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>60</y>
+     <width>311</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>D:/PYTHON_HOME/yolo-packages</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit3">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>100</y>
+     <width>311</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>D:/PYTHON_HOME/ultralytics-Yolo11</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label1">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>20</y>
+     <width>67</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>PATH</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label2">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>60</y>
+     <width>67</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>PYTHONPATH</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label3">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>100</y>
+     <width>67</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>WORKPATH</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label4">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>140</y>
+     <width>67</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>SCRIPT</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit4">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>140</y>
+     <width>311</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>train_cls.py</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label6">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>220</y>
+     <width>67</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>ARG</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit6">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>220</y>
+     <width>311</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>datasets/stone_2d_all/args.yaml</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label5">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>180</y>
+     <width>67</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>CONFIG_DIR</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="lineEdit5">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>180</y>
+     <width>311</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>datasets/data_lidian_cls</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton1">
+   <property name="geometry">
+    <rect>
+     <x>70</x>
+     <y>260</y>
+     <width>93</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>PushButton</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton2">
+   <property name="geometry">
+    <rect>
+     <x>240</x>
+     <y>260</y>
+     <width>93</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>PushButton</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
