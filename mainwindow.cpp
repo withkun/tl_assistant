@@ -967,11 +967,12 @@ QListWidgetItem *MainWindow::currentItem() {
 }
 
 void MainWindow::addRecentFile(const QString &filename) {
-//    if filename in self.recentFiles:
-//        self.recentFiles.remove(filename)
-//    elif len(self.recentFiles) >= self.maxRecent:
-//        self.recentFiles.pop()
-//    self.recentFiles.insert(0, filename)
+    if (recentFiles_.contains(filename)) {
+        recentFiles_.removeOne(filename);
+    } else if (recentFiles_.count() >= maxRecent_) {
+        recentFiles_.pop_back();
+    }
+    recentFiles_.insert(0, filename);
 }
 // Callbacks
 
@@ -1038,7 +1039,7 @@ void MainWindow::updateFileMenu() {
         const auto action = new QAction(
             icon, QString("&%1 %2").arg(i + 1).arg(QFileInfo(f).fileName()), this
         );
-        QObject::connect(action, &QAction::triggered, this, [this, &f]() { this->loadRecent(f); });
+        QObject::connect(action, &QAction::triggered, this, [this, f]() { this->loadRecent(f); });
         this->menu_recent_->addAction(action);
     }
 }
@@ -2089,21 +2090,24 @@ QString MainWindow::getLabelFile() {
 }
 
 void MainWindow::deleteFile() {
-    auto msg = tr(
-        "You are about to permanently delete this label file, " "proceed anyway?"
+    QMessageBox mb;
+    const auto msg = tr(
+        "You are about to permanently delete this label file, proceed anyway?"
     );
-    auto answer = QMessageBox::warning(this, tr("Attention"), msg, QMessageBox::Yes | QMessageBox::No);
-    if (answer != QMessageBox::Yes) {
+    const auto answer = mb.warning(this, tr("Attention"), msg, mb.Yes | mb.No);
+    if (answer != mb.Yes) {
         return;
     }
 
-    auto label_file = getLabelFile();
+    const auto label_file = getLabelFile();
     if (QFileInfo::exists(label_file)) {
         QFile::remove(label_file);
         SPDLOG_INFO("Label file is removed: {}", label_file);
 
-        const auto item = files_list_->currentItem();
-        item->setCheckState(Qt::Unchecked);
+        auto *const item = files_list_->currentItem();
+        if (item) {
+            item->setCheckState(Qt::Unchecked);
+        }
 
         resetState();
     }
@@ -2192,11 +2196,6 @@ void MainWindow::toggleKeepPrevMode() {
 }
 
 void MainWindow::removeSelectedPoint() {
-    // 删除锚点后需要更新shape_list, 否则后继将查找不到.
-    const auto &shape = canvas_->shapes_[canvas_->lasthShape_];
-    const auto *item = shape_list_->findItemByShape(shape);
-    SPDLOG_INFO("select shape: {}, point size: {}, saved size: {}", canvas_->lasthShape_, shape.points_.size(), item->shape().points_.size());
-
     canvas_->removeSelectedPoint();
     canvas_->update();
     if (canvas_->hShape_ != None && canvas_->shapes_[canvas_->hShape_].points_.empty()) {
@@ -2209,15 +2208,15 @@ void MainWindow::removeSelectedPoint() {
         }
     }
     setDirty();
-    SPDLOG_INFO("select shape: {}, point size: {}, saved size: {}", canvas_->lasthShape_, shape.points_.size(), item->shape().points_.size());
 }
 
 void MainWindow::deleteSelectedShape() {
-    auto msg = tr(
+    const auto yes = QMessageBox::Yes, no = QMessageBox::No;
+    const auto msg = tr(
         "You are about to permanently delete %1 shapes, proceed anyway?"
     ).arg(canvas_->selectedShapes_.length());
-    if (QMessageBox::Yes == QMessageBox::warning(
-        this, tr("Attention"), msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes
+    if (yes == QMessageBox::warning(
+        this, tr("Attention"), msg, yes | no, yes
     )) {
         remLabels(canvas_->deleteSelected());
         setDirty();
