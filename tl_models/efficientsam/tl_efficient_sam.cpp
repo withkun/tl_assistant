@@ -27,9 +27,6 @@ ImageEmbedding EfficientSam::compute_image_embedding_from_image(InferenceSession
     //    raise ValueError("Grayscale images are not supported")
     //if image.ndim == 3 and image.shape[2] == 4:
     //    raise ValueError("RGBA images are not supported")
-    if (image.type() == CV_8UC1) {
-        cv::cvtColor(image, image, cv::COLOR_GRAY2RGB);
-    }
 
     // 图像归一化
     cv::Mat batched_images = cv::dnn::blobFromImage(image, 1/255.0, cv::Size(), cv::Scalar(), true, false, CV_32F);

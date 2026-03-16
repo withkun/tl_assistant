@@ -45,9 +45,6 @@ ImageEmbedding Sam2::compute_image_embedding_from_image(InferenceSession &sessio
     //    raise ValueError("Grayscale images are not supported")
     //if image.ndim == 3 and image.shape[2] == 4:
     //    raise ValueError("RGBA images are not supported")
-    if (image.type() == CV_8UC1) {
-        cv::cvtColor(image, image, cv::COLOR_GRAY2RGB);
-    }
 
     //input_height: int
     //input_width: int

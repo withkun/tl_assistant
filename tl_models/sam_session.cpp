@@ -20,8 +20,12 @@ GenerateResponse SamSession::run(const cv::Mat &image, const int64_t &image_id,
         throw std::runtime_error("Either points and point_labels, or texts must be provided.");
     }
 
-    auto image_embedding = get_or_compute_embedding(image, image_id);
-    GenerateRequest request{model_name_, image, prompt, std::move(image_embedding)};
+    cv::Mat dest = image;
+    if (image.type() == CV_8UC1) {
+        cv::cvtColor(image, dest, cv::COLOR_GRAY2BGR);
+    }
+    auto image_embedding = get_or_compute_embedding(dest, image_id);
+    GenerateRequest request{model_name_, dest, prompt, std::move(image_embedding)};
     return model_->generate(request);
 }
 

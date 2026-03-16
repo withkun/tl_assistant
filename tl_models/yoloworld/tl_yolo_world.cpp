@@ -173,12 +173,7 @@ cv::Mat YoloWorld::transform_image(const cv::Mat &image, int32_t input_size, int
     // cv::INTER_AREA适用于缩小图像, 放大图像可能得到非预期的结果.
     // 如果需要放大图像, 应该使用cv::INTER_LINEAR或cv::INTER_CUBIC.
     cv::Mat scale;
-    if (image.type() == CV_8UC1) {
-        cv::cvtColor(image, scale, cv::COLOR_GRAY2RGB);
-        cv::resize(scale, scale, cv::Size(scaled_w, scaled_h), 0, 0, cv::INTER_LINEAR);
-    } else {
-        cv::resize(image, scale, cv::Size(scaled_w, scaled_h), 0, 0, cv::INTER_LINEAR);
-    }
+    cv::resize(scale, scale, cv::Size(scaled_w, scaled_h), 0, 0, cv::INTER_LINEAR);
     SPDLOG_INFO("transform scale image size: {}", scale.size);
 
     // src: 输入图像

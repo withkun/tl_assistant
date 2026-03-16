@@ -27,9 +27,9 @@ class TlUtils {
     static void addActions(QMenu *menu, const std::list<QObject *> &actions);
     static void addActions(QToolBar *tool, const std::list<QAction *> &actions);
 
-    static float distance(const QPointF &p);
-    static float distance(const QPointF &p1, const QPointF &p2);
-    static float distanceToLine(const QPointF &point, const QLineF &line);
+    static qreal distance(const QPointF &p);
+    static qreal distance(const QPointF &p1, const QPointF &p2);
+    static qreal distanceToLine(const QPointF &point, const QLineF &line);
 
     static QString HashPixmap(const QPixmap &pixmap);
 

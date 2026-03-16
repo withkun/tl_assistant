@@ -930,6 +930,7 @@ void MainWindow::submit_ai_prompt() {
         shapes.push_back({});
         auto &shape = shapes.back();
         shape.label_ = QString::fromStdString(texts[0]);
+        shape.closed_ = true;
         if (annotation.mask.empty()) {
             shape.shape_type_ = "rectangle";
             shape.points_ = {QPointF(annotation.bbox.x1, annotation.bbox.y1), QPointF(annotation.bbox.x2, annotation.bbox.y2)};

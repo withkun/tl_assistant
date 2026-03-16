@@ -191,7 +191,7 @@ private:
     void finalise();
     bool closeEnough(const QPointF &p1, const QPointF &p2);
     QPointF intersectionPoint(const QPointF &p1, const QPointF &p2);
-    void intersectingEdges(const QPointF &p1, const QPointF &p2, const std::vector<QPointF> &points, std::list<float> &d_list, std::list<int32_t> &i_list, std::list<float> &x_list, std::list<float> &y_list);
+    std::vector<std::tuple<qreal, int32_t, QPointF>> intersectingEdges(const QPointF &point1, const QPointF &point2, const std::vector<QPointF> &points);
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
     //void wheelEvent(QWheelEvent *event) override;

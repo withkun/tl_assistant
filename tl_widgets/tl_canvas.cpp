@@ -1063,37 +1063,40 @@ QPointF Canvas::intersectionPoint(const QPointF &p1, const QPointF &p2) {
     auto size = pixmap_.size();
     const std::vector<QPointF> points = {
         {0., 0.},
-        {size.width() - 1., 0.},
-        {size.width() - 1., size.height() - 1.},
-        {0., size.height() - 1.},
+        {size.width() - 0., 0.},
+        {size.width() - 0., size.height() - 0.},
+        {0., size.height() - 0.},
     };
     // x1, y1 should be in the pixmap, x2, y2 should be out of the pixmap
-    auto x1 = std::min(std::max(p1.x(), 0.), size.width()*1.);
-    auto y1 = std::min(std::max(p1.y(), 0.), size.height()*1.);
-    auto [x2, y2] = std::pair<double, double>{p2.x(), p2.y()};
-    std::list<float> d_list; std::list<int32_t> i_list; std::list<float> x_list; std::list<float> y_list;
-    //d, i, (x, y) = std::min(intersectingEdges(QPointF(x1, y1), QPointF(x2, y2), points, d_list, i_list, x_list, y_list))
-    intersectingEdges(QPointF(x1, y1), QPointF(x2, y2), points, d_list, i_list, x_list, y_list);
-    auto d = std::min(d_list.front(), d_list.back());
-    auto i = std::min(i_list.front(), i_list.back());
-    auto x = std::min(x_list.front(), x_list.back());
-    auto y = std::min(y_list.front(), y_list.back());
+    auto x1 = std::min(std::max(p1.x(), 0.), size.width() * 1.);
+    auto y1 = std::min(std::max(p1.y(), 0.), size.height() * 1.);
+    //d, i, (x, y) = min(self.intersectingEdges((x1, y1), (x2, y2), points))
+    const auto result = intersectingEdges(QPointF(x1, y1), p2, points);
+    if (result.empty()) {   // 无交点 -- 调用前判断过, 这里肯定是有交点的.
+        return QPointF(-1, -1);
+    }
+    const auto minVal = *std::ranges::min_element(result, [](const auto &a, const auto &b) {
+        return std::get<0>(a) < std::get<0>(b);
+    });
+    const auto d = std::get<0>(minVal);
+    const auto i = std::get<1>(minVal);
+    const auto x = std::get<2>(minVal).x(), y = std::get<2>(minVal).y();
 
-    auto [x3, y3] = std::pair<double, double>{points[i].x(), points[i].y()};
-    auto [x4, y4] = std::pair<double, double>{points[(i + 1) % 4].x(), points[(i + 1) % 4].y()};
+    const auto x3 = points[i].x(), y3 = points[i].y();
+    const auto x4 = points[(i+1)%4].x(), y4 = points[(i+1)%4].y();
     if ((x, y) == (x1, y1)) {
         // Handle cases where previous point is on one of the edges.
         if (x3 == x4) {
-            return QPointF(x3, std::min(std::max(0., y2), std::max(y3, y4)));
+            return QPointF(x3, std::min(std::max(0., p2.y()), std::max(y3, y4)));
         } else {  // y3 == y4
-            return QPointF(std::min(std::max(0., x2), std::max(x3, x4)), y3);
+            return QPointF(std::min(std::max(0., p2.x()), std::max(x3, x4)), y3);
         }
     }
     return QPointF(x, y);
 }
 
-void Canvas::intersectingEdges(const QPointF &p1, const QPointF &p2, const std::vector<QPointF> &points,
-                                 std::list<float> &d_list, std::list<int32_t> &i_list, std::list<float> &x_list, std::list<float> &y_list) {
+std::vector<std::tuple<qreal, int32_t, QPointF>> Canvas::intersectingEdges(const QPointF &point1, const QPointF &point2, const std::vector<QPointF> &points) {
+    std::vector<std::tuple<qreal, int32_t, QPointF>> results;
     //Find intersecting edges.
     //
     // For each edge formed by `points', yield the intersection
@@ -1101,33 +1104,31 @@ void Canvas::intersectingEdges(const QPointF &p1, const QPointF &p2, const std::
     // Also return the distance of `(x2,y2)' to the middle of the
     // edge along with its index, so that the one closest can be chosen.
     //
-    auto [x1, y1] = std::pair<double, double>{p1.x(), p1.y()};
-    auto [x2, y2] = std::pair<double, double>{p2.x(), p2.y()};
+    const auto x1 = point1.x(), y1 = point1.y();
+    const auto x2 = point2.x(), y2 = point2.y();
     for (int32_t i = 0; i < 4; ++i) {
-        auto [x3, y3] = std::pair<double, double>{points[i].x(), points[i].y()};
-        auto [x4, y4] = std::pair<double, double>{points[(i + 1) % 4].x(), points[(i + 1) % 4].y()};
+        const auto x3 = points[i].x(), y3 = points[i].y();
+        const auto x4 = points[(i+1)%4].x(), y4 = points[(i+1)%4].y();
         const auto denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
         const auto nua = (x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3);
         const auto nub = (x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3);
-        if (denom == 0) {
+        if (abs(denom) < 1e-9) { // 平行或重合
             // This covers two cases:
             //   nua == nub == 0: Coincident
             //   otherwise: Parallel
             continue;
         }
-        auto [ua, ub] = std::pair<double, double>{nua / denom, nub / denom};
-        if ((0 <= ua && ua <= 1) && (0 <= ub && ub <= 1)) {
+        float ua = nua / denom, ub = nub / denom;
+        if ((0 <= ua && ua <= 1) && (0 <= ub && ub <= 1)) {     // 验证交点有效性
             const auto x = x1 + ua * (x2 - x1);
             const auto y = y1 + ua * (y2 - y1);
             const auto m = QPointF((x3 + x4) / 2, (y3 + y4) / 2);
             const auto d = TlUtils::distance(m - QPointF(x2, y2));
             //yield d, i, (x, y);
-            d_list.push_back(d);
-            i_list.push_back(i);
-            x_list.push_back(x);
-            y_list.push_back(y);
+            results.emplace_back(std::make_tuple(d, i, QPointF(x,y)));
         }
     }
+    return results;
 }
 
 // These two, along with a call to adjustSize are required for the

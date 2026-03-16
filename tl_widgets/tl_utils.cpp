@@ -167,17 +167,17 @@ static float distancePtSeg(const std::vector<float> &P, const std::vector<float>
 }
 
 // 计算点到原点的距离
-float TlUtils::distance(const QPointF &p) {
+qreal TlUtils::distance(const QPointF &p) {
     return std::sqrt(p.x() * p.x() + p.y() * p.y());
 }
 
 // 计算两点之间的距离
-float TlUtils::distance(const QPointF &p1, const QPointF &p2) {
+qreal TlUtils::distance(const QPointF &p1, const QPointF &p2) {
     return distance(p1 - p2);
 }
 
 // 计算点到线段的距离
-float TlUtils::distanceToLine(const QPointF &point, const QLineF &line) {
+qreal TlUtils::distanceToLine(const QPointF &point, const QLineF &line) {
     /* 点到线段距离:
      *
      *  方法一: 经典算法
@@ -240,31 +240,26 @@ QString TlUtils::HashPixmap(const QPixmap &pixmap) {
 }
 
 cv::Mat TlUtils::ImageToMat(const QImage &image) {
-    const auto format = image.format(); //防止警告
-    switch (format) {
+    switch (image.format()) {
         case QImage::Format_Grayscale8: {     // 灰度图, 每个像素点1个字节(8位)
             // Mat构造：行数, 列数, 存储结构, 数据, step每行多少字节
-            return cv::Mat(image.height(), image.width(), CV_8UC1, (void*)image.constBits(), image.bytesPerLine());
+            return cv::Mat(image.height(), image.width(), CV_8UC1, (void *)image.bits(), image.bytesPerLine());
         }
-        case QImage::Format_ARGB32: // uint32存储0xAARRGGBB, pc一般小端存储低位在前, 所以字节顺序就成了BGRA
-        case QImage::Format_RGB32: // Alpha为FF
+        case QImage::Format_ARGB32:     // uint32存储0xAARRGGBB, pc一般小端存储低位在前, 所以字节顺序就成了BGRA
+        case QImage::Format_RGB32:      // Alpha为FF
         case QImage::Format_ARGB32_Premultiplied: {
-            return cv::Mat(image.height(), image.width(), CV_8UC4, (void *)image.constBits(), image.bytesPerLine());
+            return cv::Mat(image.height(), image.width(), CV_8UC4, (void *)image.bits(), image.bytesPerLine());
         }
-        case QImage::Format_RGB888: { // RR,GG,BB字节顺序存储
-            auto mat = cv::Mat(image.height(), image.width(), CV_8UC3, (void*)image.constBits(), image.bytesPerLine());
-            // opencv需要转为BGR的字节顺序
-            cv::cvtColor(mat, mat, cv::COLOR_RGB2BGR);
-            return mat;
+        case QImage::Format_RGB888: {   // RR,GG,BB字节顺序存储
+            return cv::Mat(image.height(), image.width(), CV_8UC3, (void *)image.bits(), image.bytesPerLine());
         }
-        case QImage::Format_RGBA64: { // uint64存储, 顺序和Format_ARGB32相反, RGBA
-            auto mat = cv::Mat(image.height(), image.width(), CV_16UC4, (void*)image.constBits(), image.bytesPerLine());
-            // opencv需要转为BGRA的字节顺序
-            cv::cvtColor(mat, mat, cv::COLOR_RGBA2BGRA);
-            return mat;
+        case QImage::Format_RGBA64: {   // uint64存储, 顺序和Format_ARGB32相反, RGBA
+            return cv::Mat(image.height(), image.width(), CV_16UC4, (void *)image.bits(), image.bytesPerLine());
+        }
+        default: {
+            throw std::runtime_error(std::format("Unknown image format: {}", static_cast<int32_t>(image.format())));
         }
     }
-    return  cv::Mat();
 }
 
 QImage TlUtils::MatToImage(const cv::Mat &mat) {
