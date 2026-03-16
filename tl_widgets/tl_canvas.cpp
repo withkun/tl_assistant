@@ -1118,7 +1118,7 @@ std::vector<std::tuple<qreal, int32_t, QPointF>> Canvas::intersectingEdges(const
             //   otherwise: Parallel
             continue;
         }
-        float ua = nua / denom, ub = nub / denom;
+        const auto ua = nua / denom, ub = nub / denom;
         if ((0 <= ua && ua <= 1) && (0 <= ub && ub <= 1)) {     // 验证交点有效性
             const auto x = x1 + ua * (x2 - x1);
             const auto y = y1 + ua * (y2 - y1);

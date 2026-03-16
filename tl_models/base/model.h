@@ -28,11 +28,13 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T> &v) {
 }
 
 struct InferenceSession {
-    std::shared_ptr<Ort::Session>   session_;
-    std::vector<std::string>        input_names_;
-    std::vector<std::string>        output_names_;
-    std::vector<Ort::Value>         input_tensors_;
-    std::vector<Ort::Value>         output_tensors_;
+    std::shared_ptr<Ort::Session>           session_;
+
+    std::vector<std::string>                input_names_;
+    std::vector<Ort::Value>                 input_tensors_;
+
+    std::vector<std::string>                output_names_;
+    std::vector<Ort::Value>                 output_tensors_;
 
     void RunInference();
 };

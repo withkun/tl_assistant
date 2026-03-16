@@ -13,6 +13,7 @@ void InferenceSession::RunInference() {
     }
     for (size_t i = 0; i < output_names_.size(); ++i) {
         output_names.emplace_back(output_names_[i].data());
+        output_tensors_[i] = nullptr;
     }
 
     Ort::RunOptions runOptions_;
