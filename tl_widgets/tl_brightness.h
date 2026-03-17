@@ -1,20 +1,21 @@
-//
-// Created by njtl007 on 2024/11/21.
-//
-
-#ifndef TL_ASSISTANT_TL_UTILS_TL_BRIGHTNESS_H_
-#define TL_ASSISTANT_TL_UTILS_TL_BRIGHTNESS_H_
+#ifndef __INC_BRIGHTNESS_CONTRAST_H
+#define __INC_BRIGHTNESS_CONTRAST_H
 
 #include <QDialog>
+#include <QSlider>
 
-class TlBrightness : public QDialog {
+class BrightnessContrast : public QDialog {
 public:
-    explicit TlBrightness(const QImage &img, std::function<void()> callback, QWidget *parent = nullptr);
-    ~TlBrightness();
+    explicit BrightnessContrast(const QImage &img, std::function<void()> callback, QWidget *parent = nullptr);
+    ~BrightnessContrast() override = default;
 
-    void onNewValue();
+    void onNewValue(int32_t value);
 
 
-    static int32_t base_value_;
+    std::function<void()> callback_;
+    static int32_t  base_value_;
+
+    QSlider        *slider_brightness_;
+    QSlider        *slider_contrast_;
 };
-#endif// TL_ASSISTANT_TL_UTILS_TL_BRIGHTNESS_H_
+#endif // __INC_BRIGHTNESS_CONTRAST_H

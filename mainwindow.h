@@ -92,18 +92,18 @@ private:
     QMap<ZoomMode, std::function<float()>>          scalers_;
 
     QDockWidget                                    *flags_dock_{nullptr};
-    QListWidget                                    *flags_list_{nullptr};
-
-    QDockWidget                                    *shape_dock_{nullptr};
-    TlShapeList                                    *shape_list_{nullptr};
+    QListWidget                                    *flags_list_{nullptr};       // 标志列表
 
     QDockWidget                                    *label_dock_{nullptr};
-    TlLabelList                                    *label_list_{nullptr};
+    TlLabelList                                    *label_list_{nullptr};       // 标签列表
     QMenu                                          *label_menu_{nullptr};
     TlLabelDialog                                  *label_dialog_{nullptr};
 
+    QDockWidget                                    *shape_dock_{nullptr};
+    TlShapeList                                    *shape_list_{nullptr};       // 轮廓列表
+
     QDockWidget                                    *files_dock_{nullptr};
-    TlFilesList                                    *files_list_{nullptr};
+    TlFilesList                                    *files_list_{nullptr};       // 文件列表
     QLineEdit                                      *files_search_{nullptr};
     QVBoxLayout                                    *files_layout_{nullptr};
     QWidget                                        *files_widget_{nullptr};
@@ -246,13 +246,7 @@ private:
     void importDroppedImageFiles(const QStringList &imageFiles);
     void import_images_from_dir(const QString &root_dir, const QString &pattern="");
     void update_status_stats(const QPointF &mouse_pos);
-    QStringList scanAllImages(const QString &folderPath) const;
-
-protected:
-
-private:
-    void InitDefaultConfig();
-    void SetupToolBar();
+    QStringList scan_image_files(const QString &folderPath) const;
 
 private slots:
 

@@ -1,62 +1,55 @@
 #include "tl_brightness.h"
 
-int32_t TlBrightness::base_value_ = 50;
+#include <QLabel>
+#include <QHBoxLayout>
 
-TlBrightness::TlBrightness(const QImage &img, std::function<void()> callback, QWidget *parent) : QDialog(parent) {
+int32_t BrightnessContrast::base_value_ = 50;
+
+BrightnessContrast::BrightnessContrast(const QImage &img, std::function<void()> callback, QWidget *parent) : QDialog(parent) {
     setModal(true);
     setWindowTitle("Brightness/Contrast");
 
-    //sliders = {};
-    //layouts = {};
-    //for (title in ["Brightness:", "Contrast:"]) {
-    //    layout = QtWidgets.QHBoxLayout();
-    //    title_label = QtWidgets.QLabel(self.tr(title));
-    //    title_label.setFixedWidth(75);
-    //    layout.addWidget(title_label);
-    //    #
-    //    slider = QtWidgets.QSlider(Qt.Horizontal);
-    //    slider.setRange(0, 3 * self._base_value);
-    //    slider.setValue(self._base_value);
-    //    layout.addWidget(slider);
-    //    #
-    //    value_label = QtWidgets.QLabel(f"{slider.value() / self._base_value:.2f}");
-    //    value_label.setAlignment(Qt.AlignRight);
-    //    layout.addWidget(value_label);
-    //    #
-    //    slider.valueChanged.connect(self.onNewValue);
-    //    slider.valueChanged.connect(
-    //        lambda: value_label.setText(f"{slider.value() / self._base_value:.2f}")
-    //    );
-    //    layouts[title] = layout;
-    //    sliders[title] = slider;
-    //}
-    //
-    //self.slider_brightness = sliders["Brightness:"];
-    //self.slider_contrast = sliders["Contrast:"];
-    //del sliders;
-    //
-    //layout = QtWidgets.QVBoxLayout();
-    //layout.addLayout(layouts["Brightness:"]);
-    //layout.addLayout(layouts["Contrast:"]);
-    //del layouts;
-    //self.setLayout(layout);
-    //
-    //assert isinstance(img, PIL.Image.Image);
-    //self.img = img;
-    //self.callback = callback;
+    const auto fSlider = [=](auto title, auto *parent) {
+        auto *const layout = new QHBoxLayout();
+        auto *const title_label = new QLabel(tr(title));
+        title_label->setFixedWidth(75);
+        layout->addWidget(title_label);
+
+        auto *const slider = new QSlider(Qt::Horizontal);
+        slider->setRange(0, 3 * base_value_);
+        slider->setValue(base_value_);
+        layout->addWidget(slider);
+
+        auto *const value_label = new QLabel(QString("%1").arg(slider->value() / base_value_));
+        value_label->setAlignment(Qt::AlignRight);
+        layout->addWidget(value_label);
+
+        QObject::connect(slider, &QSlider::valueChanged, this, &BrightnessContrast::onNewValue);
+        QObject::connect(slider, &QSlider::valueChanged, [=]() {
+            value_label->setText(QString("%1").arg(slider->value() / base_value_)); }
+        );
+        parent->addLayout(layout);
+        return slider;
+    };
+
+    auto *v_layout = new QVBoxLayout();
+    slider_brightness_ = fSlider("Brightness:", v_layout);
+    slider_contrast_ = fSlider("Contrast:", v_layout);
+
+    //if (img.mode != "RGB"):
+    //    raise ValueError("Image mode must be RGB")
+    //self.img = img
+    callback_ = callback;
 }
 
-TlBrightness::~TlBrightness() {
-}
+void BrightnessContrast::onNewValue(int32_t value) {
+    double brightness = 1.0*slider_brightness_->value() / base_value_;
+    double contrast = 1.0*slider_contrast_->value() / base_value_;
 
-void TlBrightness::onNewValue() {
-    //brightness = self.slider_brightness.value() / self._base_value;
-    //contrast = self.slider_contrast.value() / self._base_value;
-    //
     //img = self.img;
-    //if brightness != 1:
+    //if (brightness != 1)
     //    img = PIL.ImageEnhance.Brightness(img).enhance(brightness);
-    //if contrast != 1:
+    //if (contrast != 1)
     //    img = PIL.ImageEnhance.Contrast(img).enhance(contrast);
     //
     //qimage = QImage(

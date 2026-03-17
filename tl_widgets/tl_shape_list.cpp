@@ -94,6 +94,7 @@ TlShape TlShapeListItem::shape() const {
 //def __repr__(self):
 //    return '{}("{}")'.format(self.__class__.__name__, self.text())
 
+
 bool StandardItemModel::removeRows(int row, int count, const QModelIndex &parent) {
     const auto ret = QStandardItemModel::removeRows(row, count, parent);
     emit itemDropped();
@@ -227,7 +228,7 @@ void TlShapeList::selectItem(TlShapeListItem *item) {
 
 TlShapeListItem *TlShapeList::findItemByShape(const TlShape &shape) {
     for (auto row = 0; row < this->model_->rowCount(); ++row) {
-        auto *item = static_cast<TlShapeListItem *>(this->model_->item(row, 0));
+        auto *const item = static_cast<TlShapeListItem *>(this->model_->item(row, 0));
         if (item->shape() == shape) {
             return item;
         }
@@ -235,8 +236,9 @@ TlShapeListItem *TlShapeList::findItemByShape(const TlShape &shape) {
     throw std::runtime_error("cannot find shape: {}"); //.format(shape));
 }
 
-void TlShapeList::clear() const {
+void TlShapeList::clear() {
     this->model_->clear();
+    this->selectedItems_.clear();
 }
 
 bool TlShapeList::empty() const {

@@ -1612,11 +1612,6 @@ void MainWindow::brightnessContrast(bool value, bool is_initial_load) {
         SPDLOG_WARN("filename is None, cannot set brightness/contrast");
         return;
     }
-    auto dialog = TlBrightness(
-        this->image_,
-        [this]() { this->onNewBrightnessContrast(this->image_); },
-        this
-    );
 
     int32_t brightness = None;
     int32_t contrast = None;
@@ -1625,46 +1620,47 @@ void MainWindow::brightnessContrast(bool value, bool is_initial_load) {
     }
 
     if (is_initial_load) {
-        //prev_filename: str = self.recentFiles[0] if self.recentFiles else ""
-        //if self._config["keep_prev_brightness_contrast"] and prev_filename:
-        //    brightness, contrast = self._brightness_contrast_values.get(
-        //        prev_filename, (None, None)
-        //    );
-        //if brightness is None and contrast is None:
-        //    return
+        QString prev_filename = recentFiles_.empty() ? "" : recentFiles_[0];
+        if (config_["keep_prev_brightness_contrast"].as<bool>() && !prev_filename.isEmpty())
+            if (const auto it = brightness_contrast_values_.find(prev_filename); it != brightness_contrast_values_.end()) {
+                brightness = it->first, contrast = it->second;
+            }
+        if (brightness == None && contrast == None) {
+            return;
+        }
     }
 
-    //logger.debug(
-    //    "Opening brightness/contrast dialog with brightness={}, contrast={}",
-    //    brightness,
-    //    contrast,
-    //)
-    //dialog = BrightnessContrastDialog(
-    //    utils.img_data_to_pil(self.imageData).convert("RGB"),
-    //    self.onNewBrightnessContrast,
-    //    parent=self,
-    //)
+    SPDLOG_DEBUG(
+        "Opening brightness/contrast dialog with brightness={}, contrast={}",
+        brightness,
+        contrast,
+    );
+    auto dialog = BrightnessContrast(
+        QImage::fromData(imageData_).convertedTo(QImage::Format_RGB888),
+        [this] { onNewBrightnessContrast(this->image_); },
+        this
+    );
 
-    //if (brightness != NONE_INDEX)
-    //    dialog.slider_brightness.setValue(brightness);
-    //if (contrast != NONE_INDEX)
-    //    dialog.slider_contrast.setValue(contrast);
+    if (brightness != None)
+        dialog.slider_brightness_->setValue(brightness);
+    if (contrast != None)
+        dialog.slider_contrast_->setValue(contrast);
 
-    //if (is_initial_load)
-    //    dialog.onNewValue(None);
-    //else
-    //    dialog.exec_();
-    //    brightness = dialog.slider_brightness.value();
-    //    contrast = dialog.slider_contrast.value();
+    if (is_initial_load) {
+        dialog.onNewValue(None);
+    } else {
+        dialog.exec();
+        brightness = dialog.slider_brightness_->value();
+        contrast = dialog.slider_contrast_->value();
+    }
 
-    //this->brightness_contrast_values_[this->filename] = {brightness, contrast};
-    //self._brightness_contrast_values[self.filename] = (brightness, contrast)
-    //logger.debug(
-    //    "Updated states for {}: brightness={}, contrast={}",
-    //    self.filename,
-    //    brightness,
-    //    contrast,
-    //)
+    this->brightness_contrast_values_[this->filename_] = {brightness, contrast};
+    SPDLOG_DEBUG(
+        "Updated states for {}: brightness={}, contrast={}",
+        filename_,
+        brightness,
+        contrast
+    );
 }
 
 void MainWindow::toggleShapes(int32_t value) {
@@ -1673,7 +1669,7 @@ void MainWindow::toggleShapes(int32_t value) {
         if (value == None) {
             flag = item->checkState() == Qt::Unchecked;
         }
-        item->setCheckState(flag ? Qt::Checked : Qt::Unchecked);
+        item->setCheckState(flag ? Qt::Checked : Qt::Unchecked); // emit itemChanged
     }
 }
 
@@ -1682,8 +1678,8 @@ bool MainWindow::load_file(QString filename) {
     //Load the specified file, or the last opened file if None.
     //changing fileListWidget loads file
     if (imagelist.contains(filename) &&
-        files_list_->currentRow() != imagelist.indexOf(filename))
-    {
+        files_list_->currentRow() != imagelist.indexOf(filename)
+    ) {
         this->files_list_->setCurrentRow(imagelist.indexOf(filename));
         this->files_list_->repaint();
         return true;
@@ -1810,7 +1806,7 @@ bool MainWindow::load_file(QString filename) {
     this->canvas_->setFocus();
     show_status_message(tr("Loaded ") + filename_);
     const auto t4 = std::chrono::system_clock::now();
-    SPDLOG_INFO("loaded file: {} in {}ms",
+    SPDLOG_INFO("Loaded file: {} in {}ms",
         filename_,
         std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count()
     );
@@ -2162,17 +2158,18 @@ bool MainWindow::can_continue() {
     if (!is_changed_) {
         return true;
     }
+    QMessageBox mb;
     const QString msg = QString(tr("Save annotations to \"{%1}\" before closing?")).arg(filename_);
-    auto answer = QMessageBox::question(
+    auto answer = mb.question(
         this,
         tr("Save annotations?"),
         msg,
-        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
-        QMessageBox::Save
+        mb.Save | mb.Discard | mb.Cancel,
+        mb.Save
     );
-    if (answer == QMessageBox::Discard) {
+    if (answer == mb.Discard) {
         return true;
-    } else if (answer == QMessageBox::Save) {
+    } else if (answer == mb.Save) {
         saveFile();
         return true;
     } else {  // answer == mb.Cancel
@@ -2187,8 +2184,7 @@ void MainWindow::errorMessage(const QString &title, const QString &message) {
 }
 
 QString MainWindow::currentPath() {
-    QFileInfo fileInfo(filename_);
-    return filename_.isEmpty() ? "." : fileInfo.path();
+    return filename_.isEmpty() ? "." : QFileInfo(filename_).path();
 }
 
 void MainWindow::toggleKeepPrevMode() {
@@ -2264,6 +2260,7 @@ void MainWindow::open_dir_with_dialog(bool value) {
         )
     );
     import_images_from_dir(targetDirPath);
+    open_next_image();
 }
 
 QStringList MainWindow::imageList() {
@@ -2320,7 +2317,7 @@ void MainWindow::import_images_from_dir(const QString &root_dir, const QString &
     filename_.clear();
     files_list_->clear();
 
-    auto filenames = scanAllImages(root_dir);
+    auto filenames = scan_image_files(root_dir);
     QRegularExpression re(pattern);
     if (!pattern.isEmpty() && re.isValid()) {
         QStringList names;
@@ -2356,7 +2353,6 @@ void MainWindow::import_images_from_dir(const QString &root_dir, const QString &
     open_next_image();
 }
 
-
 void MainWindow::update_status_stats(const QPointF &mouse_pos) {
     QStringList stats;
     stats.append(QString("mode=%1").arg(ModeName(canvas_->mode_)));
@@ -2364,7 +2360,7 @@ void MainWindow::update_status_stats(const QPointF &mouse_pos) {
     status_right_->setText(stats.join(" | "));
 }
 
-QStringList MainWindow::scanAllImages(const QString &folderPath) const {
+QStringList MainWindow::scan_image_files(const QString &folderPath) const {
     QStringList images;
     QDir dir(folderPath);
     if (!dir.exists()) {
@@ -2393,47 +2389,6 @@ MainWindow::~MainWindow() {
     delete ui_;
     SamApis::instance().unregister_all("");
     AppConfig::instance().save();
-}
-
-void MainWindow::SetupToolBar() {
-    return;
-    tool_bar_ex_ = this->addToolBar("toolBarEx");
-    tool_bar_ex_->setObjectName("toolBarEx");
-    tool_bar_ex_->setIconSize(QSize(32,32));
-    auto layout = tool_bar_ex_->layout();
-    layout->setSpacing(0);
-    layout->setContentsMargins(0, 0, 0, 0);
-    tool_bar_ex_->setContentsMargins(0, 0, 0, 0);
-    tool_bar_ex_->setWindowFlags(tool_bar_ex_->windowFlags() | Qt::FramelessWindowHint);
-
-    tool_bar_ex_->addAction(createMode_);
-    tool_bar_ex_->addAction(open_);
-    tool_bar_ex_->addAction(opendir_);
-    tool_bar_ex_->addAction(openNextImg_);
-    tool_bar_ex_->addAction(openPrevImg_);
-    tool_bar_ex_->addAction(save_);
-    tool_bar_ex_->addAction(deleteFile_);
-    tool_bar_ex_->addSeparator();
-
-    tool_bar_ex_->addAction(editMode_);
-    tool_bar_ex_->addAction(duplicate_);
-    tool_bar_ex_->addAction(delete_);
-    tool_bar_ex_->addAction(undo_);
-    tool_bar_ex_->addAction(brightnessContrast_);
-    tool_bar_ex_->addSeparator();
-
-    tool_bar_ex_->addAction(fitWindow_);
-    tool_bar_ex_->addAction(zoom_);
-
-    actSetup_ = tool_bar_ex_->addAction(QIcon(":/icons/480.png"), "Setup");
-    actTrain_ = tool_bar_ex_->addAction(QIcon(":/icons/277.png"), "Train");
-    actInfer_ = tool_bar_ex_->addAction(QIcon(":/icons/285.png"), "Infer");
-    actSetup_->setToolTip("配置深度学习模型环境");
-    actTrain_->setToolTip("执行深度学习模型训练");
-    QObject::connect(actSetup_, &QAction::triggered, this, &MainWindow::slotActionSetup);
-    QObject::connect(actTrain_, &QAction::triggered, this, &MainWindow::slotActionTrain);
-    QObject::connect(actInfer_, &QAction::triggered, this, &MainWindow::slotActionInfer);
-    train_widget_ = new TlTrainWidget();
 }
 
 void MainWindow::slotActionSetup() {

@@ -535,18 +535,7 @@ bool TlShape::operator!=(const TlShape &shape) const {
 }
 
 bool TlShape::operator<(const TlShape &shape) const {
-    if (points_.size() != shape.points_.size()) {
-        return points_.size() < shape.points_.size();
-    }
-    for (auto i = 0; i < points_.size(); ++i) {
-        if (points_[i].x() != shape.points_[i].x()) {
-            return points_[i].x() < shape.points_[i].x();
-        }
-        if (points_[i].y() != shape.points_[i].y()) {
-            return points_[i].y() < shape.points_[i].y();
-        }
-    }
-    return false;
+    return (uuid_ < shape.uuid_);
 }
 
 TlShape::operator bool() const {

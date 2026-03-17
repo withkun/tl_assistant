@@ -85,7 +85,7 @@ public:
     void removeItem(TlShapeListItem *item);
     void selectItem(TlShapeListItem *item);
     TlShapeListItem *findItemByShape(const TlShape &shape);
-    void clear() const;
+    void clear();
 
     bool empty() const;
 };
