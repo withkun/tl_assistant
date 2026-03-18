@@ -19,8 +19,8 @@
 #include "tl_widgets/tl_files_list.h"
 #include "tl_widgets/tl_train_widget.h"
 
-#include "tl_models/sam_assist_annotation.h"
-#include "tl_models/sam_prompt_annotation.h"
+#include "tl_modules/sam_assist_annotation.h"
+#include "tl_modules/sam_prompt_annotation.h"
 #include "yaml-cpp/yaml.h"
 
 
@@ -153,7 +153,6 @@ private:
 
     QString load_config(QString config_file, const YAML::Node &config_overrides);
     QMenu *menu(const QString &title, const std::list<QObject *> &actions={});
-    void toolbar(const QString &title, int32_t actions);
     bool noShapes();
     void populateModeActions();
     QString get_window_title(bool dirty);
@@ -204,7 +203,7 @@ private:
     void setFitWindow(bool value=true);
     void setFitWidth(bool value=true);
     void enableKeepPrevScale(bool enabled);
-    void onNewBrightnessContrast(const QImage &qimage);
+    void onNewBrightnessContrast(const QImage &image);
     void brightnessContrast(bool value=false, bool is_initial_load=false);
     void toggleShapes(int32_t value);
     bool load_file(QString filename);

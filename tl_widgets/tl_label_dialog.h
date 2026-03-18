@@ -25,21 +25,21 @@ class TlLabelDialog : public QDialog {
 public:
     TlLabelDialog(QWidget *parent,
                   const QStringList &labels={},
-                  const bool sort_labels=true,
-                  const bool show_text_field=true,
+                  bool sort_labels=true,
+                  bool show_text_field=true,
                   const QString &completion="startswith",
                   const QMap<QString, bool> &fit_to_content={},
                   const QMap<QString, bool> &flags={});
 
-    QMap<QString, bool>     fit_to_content_;
-    QMap<QString, bool>     flags_;
-    bool                    sort_labels_;
-    QDialogButtonBox       *buttonBox_{nullptr};
-    LabelLineEdit          *edit_{nullptr};
-    QTextEdit              *editDescription_{nullptr};
-    QLineEdit              *edit_group_id_{nullptr};
-    QVBoxLayout            *flagsLayout_{nullptr};
-    QListWidget            *labelList_{nullptr};
+    QMap<QString, bool>                 fit_to_content_;
+    QMap<QString, bool>                 flags_;
+    bool                                sort_labels_;
+    QDialogButtonBox                   *buttonBox_{nullptr};
+    LabelLineEdit                      *edit_{nullptr};
+    QTextEdit                          *editDescription_{nullptr};
+    QLineEdit                          *edit_group_id_{nullptr};
+    QVBoxLayout                        *flagsLayout_{nullptr};
+    QListWidget                        *labelList_{nullptr};
 
     void validate();
     QString get_stripped_text();

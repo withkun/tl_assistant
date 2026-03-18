@@ -16,7 +16,8 @@ void LabelLineEdit::setListWidget(QListWidget *list_widget) {
 
 void LabelLineEdit::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Up || event->key() == Qt::Key_Down) {
-        //list_widget_->keyPressEvent(event);
+        this->clearFocus();
+        list_widget_->setFocus();
     } else {
         QLineEdit::keyPressEvent(event);
     }

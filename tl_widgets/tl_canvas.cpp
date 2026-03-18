@@ -387,16 +387,17 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
             line_.points_ = { current_[-1], pos };
             line_.point_labels_ = { 1, 1 };
         } else if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
-            line_.points_ = { current_.points_[-1], pos };
+            line_.points_ = { current_.points_.back(), pos };
             line_.point_labels_ = {
-                current_.point_labels_[-1],
+                current_.point_labels_.back(),
                 is_shift_pressed ? 0 : 1,
             };
         } else if (createMode_ == "rectangle") {
             if (is_shift_pressed) {
-                prevMovePoint_ = snap_cursor_pos_for_square(  // override
+                pos = snap_cursor_pos_for_square(  // override
                     pos, current_[0]
                 );
+                prevMovePoint_ = pos;
             }
             line_.points_ = { current_[0], pos };
             line_.point_labels_ = { 1, 1 };
@@ -575,8 +576,8 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
                         line_.points_[1],
                         line_.point_labels_[1]
                     );
-                    line_.points_[0] = current_.points_[-1];
-                    line_.point_labels_[0] = current_.point_labels_[-1];
+                    line_.points_[0] = current_.points_.back();
+                    line_.point_labels_[0] = current_.point_labels_.back();
                     if (event->modifiers() & Qt::ControlModifier) {
                         finalise();
                     }

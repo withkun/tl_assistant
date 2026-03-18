@@ -84,6 +84,7 @@ void TlShape::setShapeRefined(const QString &shape_type, const QList<QPointF> &p
     this->points_         = points;
     this->point_labels_   = point_labels;
     this->mask_           = mask;
+    this->close();  //  Closed for AI shape.
 }
 
 void TlShape::restoreShapeRaw() {

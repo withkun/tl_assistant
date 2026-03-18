@@ -30,8 +30,8 @@
 #include "tl_widgets/tl_utils.h"
 #include "tl_widgets/tl_brightness.h"
 #include "tl_widgets/status_stats.h"
-#include "tl_models/sam_apis.h"
-#include "tl_models/bbox_from_text.h"
+#include "tl_modules/sam_apis.h"
+#include "tl_modules/bbox_from_text.h"
 
 
 std::vector<QColor> label_colormap() {
@@ -1603,8 +1603,8 @@ void MainWindow::enableKeepPrevScale(bool enabled) {
     keepPrevScale_->setChecked(enabled);
 }
 
-void MainWindow::onNewBrightnessContrast(const QImage &qimage) {
-    canvas_->loadPixmap(QPixmap::fromImage(qimage), this->filename_, false);
+void MainWindow::onNewBrightnessContrast(const QImage &image) {
+    canvas_->loadPixmap(QPixmap::fromImage(image), this->filename_, false);
 }
 
 void MainWindow::brightnessContrast(bool value, bool is_initial_load) {

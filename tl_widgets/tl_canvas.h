@@ -6,7 +6,7 @@
 #include <qpainter.h>
 
 #include "tl_shape.h"
-#include "tl_models/sam_session.h"
+#include "tl_modules/sam_session.h"
 
 // 信号与槽和设计模式中的观察者模式很类似
 // emit

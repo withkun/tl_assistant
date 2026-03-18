@@ -102,55 +102,55 @@ set(TL_SOURCES
 )
 
 set(AI_SOURCES
-    tl_models/base/format_cv.h
-    tl_models/base/format_qt.h
-    tl_models/base/blob.h
-    tl_models/base/blob.cpp
-    tl_models/base/types.h
-    tl_models/base/types.cpp
-    tl_models/base/model.h
-    tl_models/base/model.cpp
-    tl_models/base/sam_base.h
-    tl_models/base/sam_base.cpp
-    tl_models/base/ort_logging.h
-    tl_models/base/ort_logging.cpp
-    tl_models/base/tokenizer.h
-    tl_models/base/tokenizer.cpp
+    tl_modules/base/format_cv.h
+    tl_modules/base/format_qt.h
+    tl_modules/base/blob.h
+    tl_modules/base/blob.cpp
+    tl_modules/base/types.h
+    tl_modules/base/types.cpp
+    tl_modules/base/model.h
+    tl_modules/base/model.cpp
+    tl_modules/base/sam_base.h
+    tl_modules/base/sam_base.cpp
+    tl_modules/base/ort_logging.h
+    tl_modules/base/ort_logging.cpp
+    tl_modules/base/tokenizer.h
+    tl_modules/base/tokenizer.cpp
 
-    tl_models/sam1/tl_sam1.h
-    tl_models/sam1/tl_sam1.cpp
+    tl_modules/sam1/tl_sam1.h
+    tl_modules/sam1/tl_sam1.cpp
 
-    tl_models/sam2/tl_sam2.h
-    tl_models/sam2/tl_sam2.cpp
+    tl_modules/sam2/tl_sam2.h
+    tl_modules/sam2/tl_sam2.cpp
 
-    tl_models/efficientsam/tl_efficient_sam.h
-    tl_models/efficientsam/tl_efficient_sam.cpp
+    tl_modules/efficientsam/tl_efficient_sam.h
+    tl_modules/efficientsam/tl_efficient_sam.cpp
 
-    tl_models/yoloworld/tl_yolo_world.h
-    tl_models/yoloworld/tl_yolo_world.cpp
+    tl_modules/yoloworld/tl_yolo_world.h
+    tl_modules/yoloworld/tl_yolo_world.cpp
 
-    tl_models/sam3/tl_sam3.h
-    tl_models/sam3/tl_sam3.cpp
+    tl_modules/sam3/tl_sam3.h
+    tl_modules/sam3/tl_sam3.cpp
 
-    tl_models/sam_apis.h
-    tl_models/sam_apis.cpp
-    tl_models/sam_session.h
-    tl_models/sam_session.cpp
+    tl_modules/sam_apis.h
+    tl_modules/sam_apis.cpp
+    tl_modules/sam_session.h
+    tl_modules/sam_session.cpp
 
-    tl_models/sam_assist_annotation.h
-    tl_models/sam_assist_annotation.ui
-    tl_models/sam_assist_annotation.cpp
-    tl_models/sam_prompt_annotation.h
-    tl_models/sam_prompt_annotation.ui
-    tl_models/sam_prompt_annotation.cpp
+    tl_modules/sam_assist_annotation.h
+    tl_modules/sam_assist_annotation.ui
+    tl_modules/sam_assist_annotation.cpp
+    tl_modules/sam_prompt_annotation.h
+    tl_modules/sam_prompt_annotation.ui
+    tl_modules/sam_prompt_annotation.cpp
     sk_measure/sk_measure_contour.h
     sk_measure/sk_measure_contour.cpp
     sk_measure/sk_contour_segments.cpp
     sk_measure/sk_approx_polygon.cpp
-    tl_models/bbox_from_text.h
-    tl_models/bbox_from_text.cpp
-    tl_models/base/ort_utils.h
-    tl_models/base/ort_utils.cpp
+    tl_modules/bbox_from_text.h
+    tl_modules/bbox_from_text.cpp
+    tl_modules/base/ort_utils.h
+    tl_modules/base/ort_utils.cpp
 )
 
 set(PROJECT_SOURCES
@@ -180,8 +180,8 @@ qt_add_translations(${PROJECT_NAME} TS_FILES
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/tl_models
+    ${CMAKE_CURRENT_SOURCE_DIR}/sk_measure
+    ${CMAKE_CURRENT_SOURCE_DIR}/tl_modules
     ${CMAKE_CURRENT_SOURCE_DIR}/tl_widgets
     ${CUDA_TOOLKIT_ROOT_DIR}/include
     ${ONNX_RUNTIME_ROOT}/include
