@@ -143,6 +143,7 @@ set(AI_SOURCES
     tl_modules/sam_prompt_annotation.h
     tl_modules/sam_prompt_annotation.ui
     tl_modules/sam_prompt_annotation.cpp
+
     sk_measure/sk_measure_contour.h
     sk_measure/sk_measure_contour.cpp
     sk_measure/sk_contour_segments.cpp

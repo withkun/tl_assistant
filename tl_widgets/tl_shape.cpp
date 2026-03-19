@@ -464,6 +464,10 @@ int32_t TlShape::len() const {
     return static_cast<int32_t>(points_.size());
 }
 
+QString TlShape::key() const {
+    return this->uuid_;
+}
+
 //def __getitem__(self, key):
 //    return self.points[key]
 //

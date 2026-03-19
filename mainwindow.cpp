@@ -35,18 +35,25 @@
 
 
 std::vector<QColor> label_colormap() {
-    // 生成随机颜色
-    std::random_device rd;    // 使用random_device生成种子
-    std::mt19937 rng(rd()); // 使用Mersenne Twister生成器
-    std::uniform_int_distribution<int> dist(0, 255); // 定义一个在[0, 255]范围内的均匀分布
-
-    std::vector<QColor> color_map(256);
-    for (auto &color : color_map) {
-        color = {dist(rng), dist(rng), dist(rng)};
+    std::vector<QColor> colormap(256);
+    for (int i = 0; i < 256; ++i) {
+        // 提取标签i的8个二进制位
+        const uint8_t b0 = (i >> 0) & 1;
+        const uint8_t b1 = (i >> 1) & 1;
+        const uint8_t b2 = (i >> 2) & 1;
+        const uint8_t b3 = (i >> 3) & 1;
+        const uint8_t b4 = (i >> 4) & 1;
+        const uint8_t b5 = (i >> 5) & 1;
+        const uint8_t b6 = (i >> 6) & 1;
+        const uint8_t b7 = (i >> 7) & 1;
+        // 合成RGB通道色彩值.
+        const uint8_t r = (b0 << 7) | (b3 << 6) | (b6 << 5);
+        const uint8_t g = (b1 << 7) | (b4 << 6) | (b7 << 5);
+        const uint8_t b = (b2 << 7) | (b5 << 6);
+        colormap[i] = QColor(r, g, b);
     }
-    return color_map;
+    return colormap;
 }
-
 std::vector<QColor> LABEL_COLORMAP = label_colormap();
 
 
@@ -102,7 +109,7 @@ MainWindow::MainWindow(const QString &config_file,
         YAML_QMAP(config_["label_flags"])
     );
 
-    this->shape_list_ =  new TlShapeList();   // LabelListWidget
+    this->shape_list_ =  new ShapeListWidget();   // LabelListWidget
     this->prev_opened_dir_ = QString::fromStdString(appConfig.last_work_dir_);
 
     //self.flag_dock = self.flag_widget = None
@@ -114,10 +121,10 @@ MainWindow::MainWindow(const QString &config_file,
     this->flags_dock_->setWidget(this->flags_list_);
     QObject::connect(flags_list_, &QListWidget::itemChanged, this, &MainWindow::setDirty);
 
-    QObject::connect(shape_list_, &TlShapeList::itemSelectionChanged, this, &MainWindow::label_selection_changed);
-    QObject::connect(shape_list_, &TlShapeList::itemDoubleClicked, this, &MainWindow::edit_label);
-    QObject::connect(shape_list_, &TlShapeList::itemChanged, this, &MainWindow::labelItemChanged);
-    QObject::connect(shape_list_, &TlShapeList::itemDropped, this, &MainWindow::labelOrderChanged);
+    QObject::connect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::connect(shape_list_, &ShapeListWidget::itemDoubleClicked, this, &MainWindow::edit_label);
+    QObject::connect(shape_list_, &ShapeListWidget::itemChanged, this, &MainWindow::labelItemChanged);
+    QObject::connect(shape_list_, &ShapeListWidget::itemDropped, this, &MainWindow::labelOrderChanged);
     this->shape_dock_ = new QDockWidget(tr("Annotation List"), this);
     this->shape_dock_->setObjectName("Labels");
     this->shape_dock_->setWidget(this->shape_list_);
@@ -392,7 +399,7 @@ MainWindow::MainWindow(const QString &config_file,
     label_menu_ = new QMenu();
     TlUtils::addActions(label_menu_, {edit_, delete_});
     shape_list_->setContextMenuPolicy(Qt::CustomContextMenu);
-    QObject::connect(shape_list_, &TlShapeList::customContextMenuRequested, this, &MainWindow::popLabelListMenu);
+    QObject::connect(shape_list_, &ShapeListWidget::customContextMenuRequested, this, &MainWindow::popLabelListMenu);
 
     // Store actions for further handling.
     actions_ = {
@@ -1197,7 +1204,7 @@ void MainWindow::fileSelectionChanged() {
 
 // React to canvas signals.
 void MainWindow::shapeSelectionChanged(const QList<int32_t> &selected_shapes) {
-    QObject::disconnect(shape_list_, &TlShapeList::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::disconnect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
     for (auto &idx : canvas_->selectedShapes_) {
         canvas_->shapes_[idx].selected_ = false;
     }
@@ -1209,7 +1216,7 @@ void MainWindow::shapeSelectionChanged(const QList<int32_t> &selected_shapes) {
         shape_list_->selectItem(item);
         shape_list_->scrollToItem(item);
     }
-    QObject::connect(shape_list_, &TlShapeList::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::connect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
     auto n_selected = selected_shapes.size();
     delete_->setEnabled(n_selected);
     duplicate_->setEnabled(n_selected);
@@ -1224,7 +1231,7 @@ void MainWindow::addLabel(TlShape &shape) {
     } else {
         text = QString("%1 (%2)").arg(shape.label_).arg(shape.group_id_);
     }
-    auto *shape_list_item = new TlShapeListItem(text, shape);
+    auto *const shape_list_item = new ShapeListItem(text);
     shape_list_->addItem(shape_list_item);
     if (label_list_->find_label_item(shape.label_) == nullptr) {
         this->label_list_->add_label_item(
@@ -1243,6 +1250,7 @@ void MainWindow::addLabel(TlShape &shape) {
         QString("%1 <font color=\"#%2%3%4\">●</font>").arg(text.toHtmlEscaped())
             .arg(r, 2, 16, QLatin1Char('0')).arg(g, 2, 16, QLatin1Char('0')).arg(b, 2, 16, QLatin1Char('0'))
     );
+    shape_list_item->setShape(shape);   // 更新完颜色后再设置.
 }
 
 void MainWindow::update_shape_color(TlShape &shape) {
@@ -1290,7 +1298,6 @@ std::vector<int32_t> MainWindow::get_rgb_by_label(const QString &label) {   // t
 }
 
 void MainWindow::remLabels(const QList<TlShape> &shapes) {
-    SPDLOG_INFO("remLabels size: {}", shapes.size());
     for (const auto &shape : shapes) {
         auto *item = shape_list_->findItemByShape(shape);
         shape_list_->removeItem(item);
@@ -1298,12 +1305,12 @@ void MainWindow::remLabels(const QList<TlShape> &shapes) {
 }
 
 void MainWindow::load_shapes(QList<TlShape> &shapes, bool replace) {
-    QObject::disconnect(shape_list_, &TlShapeList::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::disconnect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
     for (auto &shape : shapes) {
         addLabel(shape);
     }
     shape_list_->clearSelection();
-    QObject::connect(shape_list_, &TlShapeList::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::connect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
     canvas_->loadShapes(shapes, replace);
 }
 
@@ -1453,18 +1460,18 @@ void MainWindow::label_selection_changed() {
     }
 }
 
-void MainWindow::labelItemChanged(TlShapeListItem *item) {
-    auto shape = item->shape();
+void MainWindow::labelItemChanged(const ShapeListItem *item) {
+    const auto shape = item->shape();
     canvas_->setShapeVisible(shape, item->checkState() == Qt::Checked);
 }
 
 void MainWindow::labelOrderChanged() {
     setDirty();
-    QList<TlShape> shapes;
-    for (const auto *item : shape_list_->items()) {
-        shapes.push_back(item->shape());
-    }
-    canvas_->loadShapes(shapes);
+    // 不能且不需要重新加载, shape_list中保存的原始图形, 不包含锚点调整信息。
+    //QList<TlShape> shapes;
+    //QList<ShapeListItem *> items = shape_list_->items();
+    //std::ranges::transform(items, std::back_inserter(shapes), [](auto &item){ return item->shape(); });
+    //this->canvas_->loadShapes(shapes);
 }
 
 // Callback functions:
@@ -2350,7 +2357,6 @@ void MainWindow::import_images_from_dir(const QString &root_dir, const QString &
         }
         files_list_->addItem(item);
     }
-    open_next_image();
 }
 
 void MainWindow::update_status_stats(const QPointF &mouse_pos) {

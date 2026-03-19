@@ -23,68 +23,66 @@ private:
     QTextDocument      *doc_{nullptr};
 };
 
-class TlShapeListItem : public QStandardItem {
-  public:
-    TlShapeListItem() {};
-    TlShapeListItem(const QString &text, const TlShape &shape);
+class ShapeListItem : public QStandardItem {
+public:
+    explicit ShapeListItem(const QString &text) { InitItem(text); };
+    ShapeListItem(const QString &text, const TlShape &shape);
 
-    TlShapeListItem *clone() const override;
+    ShapeListItem *clone() const override;
     void setShape(const TlShape &shape);
     TlShape shape() const;
+
+private:
+    void InitItem(const QString &text);
 };
 
 // QStandardItemModel --> QAbstractItemModel --> QObject
 class StandardItemModel : public QStandardItemModel {
     Q_OBJECT
 public:
-    //void __hash__();
-    //void __repr__();
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
     bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) override;
 
 signals:
     void itemDropped();
-
-private:
-    // QAbstractListModel --> QAbstractItemModel --> QObject
-    //QStringListModel *model_;
 };
 
 // QListView是列表形式的展示控件
 // QListWidget继承自QListView, 是表格形式的展示控件
 // 本质区别: QListView基于Model(需要自己建模), QListWidget基于Item
-class TlShapeList : public QListView {
+class ShapeListWidget : public QListView {
     Q_OBJECT
 public:
-    explicit TlShapeList(QWidget *parent = nullptr);
+    explicit ShapeListWidget(QWidget *parent = nullptr);
 
 signals:
     void itemDropped();
-    void itemChanged(TlShapeListItem *item);
-    void itemDoubleClicked(TlShapeListItem *item);
-    void itemSelectionChanged(const QList<TlShapeListItem *> &l1, const QList<TlShapeListItem *> &l2);
+    void itemChanged(ShapeListItem *item);
+    void itemDoubleClicked(ShapeListItem *item);
+    void itemSelectionChanged(const QList<ShapeListItem *> &selected, const QList<ShapeListItem *> &deselect);
 
 public slots:
+
+private:
+    QList<ShapeListItem *>      selectedItems_;
+    StandardItemModel          *model_{nullptr};
 
 public:
     //void __init__();
     int32_t len() const;
-    QList<TlShapeListItem *> items() const;
+    QList<ShapeListItem *> items() const;
     //void __iter__();
-
-    QList<TlShapeListItem *>    selectedItems_;
-    StandardItemModel          *model_{nullptr};
 
     void itemDroppedEvent();
     void itemChangedEvent(QStandardItem *item);
-    void itemSelectionChangedEvent(const QItemSelection &selected, const QItemSelection &deselected);
+    void itemSelectionChangedEvent(const QItemSelection &selected, const QItemSelection &deselect);
     void itemDoubleClickedEvent(const QModelIndex &index);
-    QList<TlShapeListItem *> selectedItems();
-    void scrollToItem(QStandardItem *item);
-    void addItem(TlShapeListItem *item);
-    void removeItem(TlShapeListItem *item);
-    void selectItem(TlShapeListItem *item);
-    TlShapeListItem *findItemByShape(const TlShape &shape);
+    QList<ShapeListItem *> selectedItems();
+    void scrollToItem(ShapeListItem *item);
+    void addItem(ShapeListItem *item);
+    void removeItem(ShapeListItem *item);
+    void selectItem(ShapeListItem *item);
+    ShapeListItem *findItemByShape(const TlShape &shape);
     void clear();
 
     bool empty() const;

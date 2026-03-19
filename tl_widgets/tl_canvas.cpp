@@ -212,7 +212,7 @@ void Canvas::focusOutEvent(QFocusEvent *event) {
 }
 
 bool Canvas::isVisible(const TlShape &shape) {
-    const auto it = visible_.find(shape);
+    const auto it = visible_.find(shape.key());
     return it != visible_.end() ? it.value() : true;
 }
 
@@ -881,7 +881,7 @@ bool Canvas::deSelectShape() {
 QList<TlShape> Canvas::deleteSelected() {
     QList<TlShape> deleted_shapes = {};
     if (!selectedShapes_.empty()) {
-        for (auto &index : selectedShapes_) {
+        for (const auto &index : selectedShapes_) {
             deleted_shapes.push_back(shapes_[index]);
         }
         for (auto &shape : deleted_shapes) {
@@ -1287,7 +1287,7 @@ void Canvas::loadShapes(const QList<TlShape> &shapes, bool replace) {
 }
 
 void Canvas::setShapeVisible(const TlShape &shape, bool value) {
-    visible_[shape] = value;
+    visible_[shape.key()] = value;
     update();
 }
 

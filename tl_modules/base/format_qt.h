@@ -8,6 +8,7 @@
 #include <QRect>
 #include <QRectF>
 #include <QString>
+#include <QColor>
 
 #include "spdlog/spdlog.h"
 
@@ -55,5 +56,14 @@ struct formatterRect : formatter<string_view> {
 };
 template<> struct formatter<QRect> : formatterRect<QRect, int> {};
 template<> struct formatter<QRectF> : formatterRect<QRectF, qreal> {};
+
+template<>
+struct formatter<QColor> : formatter<string_view> {
+    auto format(const QColor &val, format_context &ctx) const -> decltype(ctx.out()) {
+        std::stringstream ss;
+        ss << "[" << val.red() << ", " << val.green() << ", " << val.blue() << "]";
+        return formatter<string_view>::format(ss.str(), ctx);
+    }
+};
 }
 #endif //__INC_FORMAT_QT_H

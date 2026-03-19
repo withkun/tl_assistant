@@ -45,12 +45,14 @@ try {
     if (json["group_id"].is_number()) {
         shape.group_id_ = json["group_id"].get<int32_t>();
     }
-    shape.description_ = json["description"].get<QString>();
+    if (json.contains("description") && json["description"].is_string()) {
+        shape.description_ = json["description"].get<QString>();
+    }
     shape.shape_type_  = json["shape_type"].get<QString>();
     //shape.flags_       = json["flags"].get<std::string>();
 
-    for (const auto &pnt : json["points"].get<std::vector<std::vector<float>>>()) {
-        shape.points_.push_back({pnt[0], pnt[1]});
+    for (const auto &pnt : json["points"].get<std::vector<std::pair<float, float>>>()) {
+        shape.points_.push_back({pnt.first, pnt.second});
     }
 
     if (json["mask"].is_string()) {

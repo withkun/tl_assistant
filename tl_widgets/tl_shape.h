@@ -20,8 +20,6 @@ public:
             const QString &description="",
             const cv::Mat &mask=cv::Mat());
 
-    TlShape(const TlShape &shape);
-
 public:   // 类变量:
     // Render handles as squares
     const static int32_t P_SQUARE       = 0;
@@ -85,6 +83,8 @@ private:
 
     bool                        closed_{false};
 
+    QString                     uuid_;
+
 public:
     QPointF scale_point(const QPointF &point);
     void setShapeRefined(const QString &shape_type, const QList<QPointF> &points, const QList<int32_t> &point_labels, const cv::Mat &mask=cv::Mat());
@@ -113,14 +113,17 @@ public:
     void highlightClear();
     TlShape copy() const;
 
+    QString key() const;
+
+    TlShape(const TlShape &shape);
+    void SetValue(const TlShape &shape);
+
     TlShape clone() const;
     int32_t len() const;
     void clear();
 
     QPointF &operator[](int32_t index);
 
-    QString uuid_;
-    void SetValue(const TlShape &shape);
     TlShape &operator=(const TlShape &shape);
     bool operator==(const TlShape &shape) const;
     bool operator!=(const TlShape &shape) const;

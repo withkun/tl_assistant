@@ -100,7 +100,7 @@ private:
     TlLabelDialog                                  *label_dialog_{nullptr};
 
     QDockWidget                                    *shape_dock_{nullptr};
-    TlShapeList                                    *shape_list_{nullptr};       // 轮廓列表
+    ShapeListWidget                                *shape_list_{nullptr};       // 轮廓列表
 
     QDockWidget                                    *files_dock_{nullptr};
     TlFilesList                                    *files_list_{nullptr};       // 文件列表
@@ -191,7 +191,7 @@ private:
     void pasteSelectedShape();
     void copySelectedShape();
     void label_selection_changed();
-    void labelItemChanged(TlShapeListItem *item);
+    void labelItemChanged(const ShapeListItem *item);
     void labelOrderChanged();
     void newShape();
     void scrollRequest(int32_t delta, Qt::Orientation orientation);

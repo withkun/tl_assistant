@@ -117,7 +117,7 @@ private:
     QPixmap                     pixmap_;
     int64_t                     pixmap_hash_;
 
-    QMap<TlShape, bool>         visible_;
+    QMap<QString, bool>         visible_;
     bool                        hideBackround_;
     bool                        hideBackround1_;
     int32_t                     hShape_;
