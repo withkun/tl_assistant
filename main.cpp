@@ -105,7 +105,6 @@ int main(int argc, char *argv[]) {
     YAML::Node config_overrides;
     if (!appConfig.config_file_.empty()) {
         try {
-            //config_overrides = YAML::LoadFile(appConfig.config_file_);
             config_file = QString::fromStdString(appConfig.config_file_);
         } catch (const YAML::BadFile &e) {
         }
@@ -115,16 +114,12 @@ int main(int argc, char *argv[]) {
     if (!FLAGS_file_name.empty()) {
         file_name = QString::fromStdString(FLAGS_file_name);
     }
-    QString output_file;
-    if (!FLAGS_output_file.empty()) {
-        output_file = QString::fromStdString(FLAGS_output_file);
-    }
     QString output_dir;
     if (!FLAGS_output_dir.empty()) {
         output_dir = QString::fromStdString(FLAGS_output_dir);
     }
 
-    MainWindow w(config_file, config_overrides, file_name, output_file, output_dir);
+    MainWindow w(config_file, config_overrides, file_name, output_dir);
     w.show();
 
     return a.exec();

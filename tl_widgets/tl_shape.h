@@ -16,7 +16,7 @@ public:
             const QColor &line_color=TlShape::line_color,
             const QString &shape_type="polygon",
             const QMap<QString, bool> &flags={},
-            int32_t group_id=-1,
+            int32_t group_id=None,
             const QString &description="",
             const cv::Mat &mask=cv::Mat());
 
@@ -57,17 +57,18 @@ private:      // 实例变量
     QColor                      current_vertex_fill_color_;
     int32_t                     point_type_;
     int32_t                     point_size_;
-    static float                       scale_;
+
+    static float                scale_;
 
 public:
     QString                     label_;
-    int32_t                     group_id_{-1};
+    int32_t                     group_id_{None};
     QList<QPointF>              points_;
     QString                     shape_type_;
     QMap<QString, bool>         flags_;
     QString                     description_;
     cv::Mat                     mask_;
-    bool                        other_data_{false};
+    QMap<QString, QString>      other_data_{};
 
 private:
     QList<int32_t>              point_labels_;
@@ -102,8 +103,8 @@ public:
     void setOpen();
     void paint(QPainter &painter);
     void drawVertex(QPainterPath &path, int32_t i);
-    int32_t nearestVertex(QPointF point, int32_t epsilon);
-    int32_t nearestEdge(QPointF point, int32_t epsilon);
+    int32_t nearestVertex(QPointF point, float epsilon);
+    int32_t nearestEdge(QPointF point, float epsilon);
     bool containsPoint(QPointF point);
     QPainterPath makePath() const;
     QRectF boundingRect() const;

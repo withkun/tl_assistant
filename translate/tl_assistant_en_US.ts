@@ -2,7 +2,7 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
-    <name>SamAssistAnnotation</name>
+    <name>AiAssistAnnotation</name>
     <message>
         <source>AI-Assisted Annotation</source>
         <translation type="unfinished"></translation>
@@ -17,7 +17,7 @@
     </message>
 </context>
 <context>
-    <name>SamPromptAnnotation</name>
+    <name>AiPromptAnnotation</name>
     <message>
         <source>AI Text-to-Annotation</source>
         <translation type="unfinished"></translation>

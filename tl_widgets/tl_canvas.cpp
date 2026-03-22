@@ -1,6 +1,7 @@
 ﻿#include "tl_canvas.h"
 #include "base/format_qt.h"
 #include "np_utils.h"
+#include "config/app_config.h"
 
 #include <QWheelEvent>
 #include <QApplication>
@@ -24,25 +25,33 @@ const double MOVE_SPEED     = 5.0f;
 Canvas::Canvas(float epsilon,
                const QString &double_click,
                int32_t num_backups,
-               const QMap<QString, bool> &crosshair,
-               const std::string &model_name) : QWidget() {
-    this->mode_             = CanvasMode::EDIT;
+               const QMap<QString, bool> &crosshair) : QWidget() {
+    this->mode_                     = CanvasMode::EDIT;
 
     // polygon, rectangle, line, or point
-    this->createMode_       = "polygon";
+    this->createMode_               = "polygon";
 
-    this->fill_drawing_     = false;
+    this->fill_drawing_             = false;
 
-    this->sam_session_model_name_   = model_name;
+    this->prevPoint_                = QPointF();
+    this->prevMovePoint_            = QPointF();
+    this->offsets_                  = { QPointF(), QPointF() };
+
+    this->dragging_start_pos_       = QPointF();
+    this->is_dragging_              = false;
+    this->is_dragging_enabled_      = false;
+
+    this->sam_session_model_name_   = AppConfig::instance().ai_assist_name_;
+    this->sam_session_              = nullptr;
 
     //def __init__(self, *args, **kwargs):
-    this->epsilon_          = epsilon;
-    this->double_click_     = double_click;
+    this->epsilon_                  = epsilon;
+    this->double_click_             = double_click;
     if (!this->double_click_.isEmpty() && this->double_click_ != "close") {
         throw std::invalid_argument("Unexpected value for double_click event: " + double_click.toStdString());
     }
-    this->num_backups_      = num_backups;
-    this->crosshair_        = crosshair.size() == 8 ?
+    this->num_backups_              = num_backups;
+    this->crosshair_                = crosshair.size() == 8 ?
         crosshair :
         QMap<QString, bool> {
             { "polygon",    false },
@@ -62,26 +71,25 @@ Canvas::Canvas(float epsilon,
     //   - createMode == 'rectangle': diagonal line of the rectangle
     //   - createMode == 'line': the line
     //   - createMode == 'point': the point
-    this->line_.clear();
-    this->prevPoint_            = QPoint();
-    this->prevMovePoint_        = QPoint();
-    this->offsets_              = { QPoint(), QPoint() };
-    this->scale_                = 1.0;
-    this->sam_session_         = nullptr;
-    this->visible_              = {};
-    this->hideBackround_        = false;
-    this->hideBackround1_       = false;
-    this->snapping_             = true;
-    this->hShapeIsSelected_     = false;
+    this->line_                     = TlShape();
+    this->prevPoint_                = QPointF();
+    this->prevMovePoint_            = QPointF();
+    this->offsets_                  = { QPointF(), QPointF() };
+    this->scale_                    = 1.0;
+    this->sam_session_              = nullptr;
+    this->visible_                  = {};
+    this->hideBackround_            = false;
+    this->hideBackround1_           = false;
+    this->snapping_                 = true;
+    this->hShapeIsSelected_         = false;
     this->painter_;
-    this->dragging_start_pos_   = QPointF();
-    this->is_dragging_          = false;
-    this->is_dragging_enabled_  = false;
+    this->dragging_start_pos_       = QPointF();
+    this->is_dragging_              = false;
+    this->is_dragging_enabled_      = false;
     // Menus
     // 0: right-click without selection and dragging of shapes
     // 1: right-click with selection and dragging of shapes
-    this->menus_                = { new QMenu(), new QMenu() };
-    // Set widget options.
+    this->menus_                    = { new QMenu(), new QMenu() };
     this->setMouseTracking(true);
     this->setFocusPolicy(Qt::WheelFocus);
 }
@@ -118,11 +126,14 @@ void Canvas::createMode(const QString &value) {
 
 void Canvas::set_ai_model_name(const std::string &model_name) {
     this->sam_session_model_name_ = model_name;
+    AppConfig::instance().ai_assist_name_ = model_name;
 }
 
 SamSession &Canvas::get_osam_session() {
-    if (this->sam_session_ == nullptr ||
-        this->sam_session_->model_name() != this->sam_session_model_name_) {
+    if (
+        this->sam_session_ == nullptr ||
+        this->sam_session_->model_name() != this->sam_session_model_name_
+    ) {
         this->sam_session_ = std::make_unique<SamSession>(this->sam_session_model_name_);
     }
     return *this->sam_session_;
@@ -147,7 +158,7 @@ void Canvas::update_shape_with_ai(const QList<QPointF> &points, const QList<int3
     update_shape_with_ai_response(
         response,
         shape,
-        createMode_.toStdString()
+        createMode_
     );
 }
 
@@ -1324,9 +1335,9 @@ void Canvas::resetState() {
     this->update();
 }
 
-void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const std::string &createMode) {
-    if (!std::set<std::string>{"ai_polygon", "ai_mask"}.contains(createMode)) {
-        throw std::logic_error("createMode must be 'ai_polygon' or 'ai_mask', not " + createMode);
+void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const QString &createMode) {
+    if (!QKey{"ai_polygon", "ai_mask"}.contains(createMode)) {
+        throw std::logic_error("createMode must be 'ai_polygon' or 'ai_mask', not " + createMode.toStdString());
     }
 
     if (response.annotations.empty()) {
@@ -1334,7 +1345,7 @@ void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlS
         return;
     }
 
-    if (createMode_ == "ai_mask") {
+    if (createMode == "ai_mask") {
         int32_t y1;
         int32_t x1;
         int32_t y2;
@@ -1355,7 +1366,7 @@ void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlS
             {1, 1},
             response.annotations[0].mask(cv::Rect(x1, y1, x2-x1, y2-y1)).clone()
         );
-    } else if (createMode_ == "ai_polygon") {
+    } else if (createMode == "ai_polygon") {
         auto points = compute_polygon_from_mask(
             response.annotations[0].mask
         );
@@ -1366,7 +1377,6 @@ void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlS
         QList<QPointF> point_coords;
         point_coords.reserve(points.size());
         std::ranges::transform(points, std::back_inserter(point_coords), [](const auto &v) { return QPointF(v.x, v.y); });
-
         QList<int32_t> point_labels(points.size(), 1);
 
         shape.setShapeRefined(

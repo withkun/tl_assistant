@@ -19,8 +19,8 @@
 #include "tl_widgets/tl_files_list.h"
 #include "tl_widgets/tl_train_widget.h"
 
-#include "tl_modules/sam_assist_annotation.h"
-#include "tl_modules/sam_prompt_annotation.h"
+#include "tl_modules/ai_assist_annotation.h"
+#include "tl_modules/ai_prompt_annotation.h"
 #include "yaml-cpp/yaml.h"
 
 
@@ -44,7 +44,6 @@ public:
     MainWindow(const QString &config_file,
                const YAML::Node &config_overrides,
                const QString &file_name,
-               const QString &output_file,
                const QString &output_dir);
     ~MainWindow() override;
 
@@ -65,8 +64,8 @@ private:
     Ui::MainWindow                                 *ui_{nullptr};
     TlToolBar                                      *tool_bar_{nullptr};
     QToolBar                                       *tool_bar_ex_{nullptr};
-    QLabel                                         *status_left_{nullptr};
-    QLabel                                         *status_right_{nullptr};
+    QLabel                                         *message_{nullptr};
+    QLabel                                         *stats_{nullptr};
 
     YAML::Node                                      config_;
     QSettings                                       settings_;
@@ -78,6 +77,7 @@ private:
 
     bool                                            is_changed_{false};
     QList<TlShape>                                  copied_shapes_;
+    LabelDialog                                    *label_dialog_{nullptr};
 
     Canvas                                         *canvas_{nullptr};
     QScrollArea                                    *scroll_area_{nullptr};
@@ -85,8 +85,6 @@ private:
     QMap<Qt::Orientation, QMap<QString, int32_t>>   scroll_values_;
 
     ZoomMode                                        zoom_mode_{ZoomMode::FIT_WINDOW};
-    int32_t                                         zoom_level_{100};
-    bool                                            fit_window_{false};
     QMap<QString, std::pair<ZoomMode, float>>       zoom_values_;
     QMap<QString, std::pair<int32_t, int32_t>>      brightness_contrast_values_;
     QMap<ZoomMode, std::function<float()>>          scalers_;
@@ -96,8 +94,6 @@ private:
 
     QDockWidget                                    *label_dock_{nullptr};
     TlLabelList                                    *label_list_{nullptr};       // 标签列表
-    QMenu                                          *label_menu_{nullptr};
-    TlLabelDialog                                  *label_dialog_{nullptr};
 
     QDockWidget                                    *shape_dock_{nullptr};
     ShapeListWidget                                *shape_list_{nullptr};       // 轮廓列表
@@ -105,20 +101,18 @@ private:
     QDockWidget                                    *files_dock_{nullptr};
     TlFilesList                                    *files_list_{nullptr};       // 文件列表
     QLineEdit                                      *files_search_{nullptr};
-    QVBoxLayout                                    *files_layout_{nullptr};
-    QWidget                                        *files_widget_{nullptr};
 
-    QWidgetAction                                  *zoom_{nullptr};
+    QWidgetAction                                  *zoom_action_{nullptr};
     ZoomWidget                                     *zoom_widget_{nullptr};
 
     QImage                                          image_;
     QString                                         filename_;
-    QString                                         imagePath_;
-    QStringList                                     recentFiles_;
-    int32_t                                         maxRecent_{0};
+    QString                                         image_path_;
+    QStringList                                     recent_files_;
+    int32_t                                         max_recent_{0};
     QByteArray                                      imageData_;
     QByteArray                                      other_data_;
-    std::unique_ptr<TlLabelFile>                    labelFile_;
+    std::unique_ptr<TlLabelFile>                    label_file_;
 
     std::string                                     sam_model_name_{"efficientsam:latest"};
     std::unique_ptr<SamSession>                     text_osam_session_{nullptr};
@@ -127,8 +121,8 @@ private:
     QAction                                        *actTrain_{nullptr};
     QAction                                        *actInfer_{nullptr};
 
-    SamAssistAnnotation                            *ai_assisted_annotation_widget_{nullptr};
-    SamPromptAnnotation                            *ai_text_to_annotation_widget_{nullptr};
+    AiAssistAnnotation                             *ai_assisted_annotation_widget_{nullptr};
+    AiPromptAnnotation                             *ai_text_to_annotation_widget_{nullptr};
     QWidgetAction                                  *select_ai_model_{nullptr};
     QWidgetAction                                  *ai_prompt_action_{nullptr};
 
@@ -139,17 +133,24 @@ private:
     std::list<QAction *>                            on_load_active_actions_;
     std::list<QObject *>                            context_menu_actions_;
     std::list<QAction *>                            edit_menu_actions_;
-    std::list<QMenu *>                              menus_;
 
-    QMenu                                          *menu_file_{nullptr};
-    QMenu                                          *menu_edit_{nullptr};
-    QMenu                                          *menu_view_{nullptr};
-    QMenu                                          *menu_help_{nullptr};
-    QMenu                                          *menu_recent_{nullptr};
+    QMenu                                          *file_menu_{nullptr};
+    QMenu                                          *edit_menu_{nullptr};
+    QMenu                                          *view_menu_{nullptr};
+    QMenu                                          *help_menu_{nullptr};
+    QMenu                                          *recent_menu_{nullptr};
+    QMenu                                          *label_menu_{nullptr};
 
     TlTrainWidget                                  *train_widget_{nullptr};
     QProcess                                       *sub_process_;
 
+    void setup_actions();
+    void setup_menus();
+    void setup_toolbars();
+    void setup_app_state(const QString &output_dir, const QString &filename);
+    void setup_status_bar();
+    void setup_canvas();
+    void setup_dock_widgets();
 
     QString load_config(QString config_file, const YAML::Node &config_overrides);
     QMenu *menu(const QString &title, const std::list<QObject *> &actions={});
@@ -161,7 +162,6 @@ private:
     void toggleActions(bool value=true);
     //void queueEvent(function);
     void show_status_message(const QString &message, int32_t delay=5000);
-    void set_ai_model_name(const std::string &name);
     void submit_ai_prompt();
     void resetState();
     QListWidgetItem *currentItem();
@@ -184,7 +184,7 @@ private:
     void remLabels(const QList<TlShape> &shapes);
     void load_shapes(QList<TlShape> &shapes, bool replace=true);
     void load_shape_dicts(const QList<ShapeDict> &shapes);
-    void load_flags(const YAML::Node &flags) const;
+    void load_flags(const YAML::Node &flags, QListWidget *const widget) const;
     bool saveLabels(const QString &filename);
 
     void duplicateSelectedShape();
@@ -253,51 +253,51 @@ private:
     QAction                *quit_{nullptr};
     QAction                *open_{nullptr};
     QAction                *open_config_{nullptr};
-    QAction                *opendir_{nullptr};
-    QAction                *openNextImg_{nullptr};
-    QAction                *openPrevImg_{nullptr};
+    QAction                *open_dir_{nullptr};
+    QAction                *open_next_img_{nullptr};
+    QAction                *open_prev_img_{nullptr};
     QAction                *save_{nullptr};
-    QAction                *saveAs_{nullptr};
-    QAction                *deleteFile_{nullptr};
-    QAction                *changeOutputDir_{nullptr};
-    QAction                *saveAuto_{nullptr};
-    QAction                *saveWithImageData_{nullptr};
+    QAction                *save_as_{nullptr};
+    QAction                *delete_file_{nullptr};
+    QAction                *change_output_dir_{nullptr};
+    QAction                *save_auto_{nullptr};
+    QAction                *save_with_image_data_{nullptr};
     QAction                *close_{nullptr};
     QAction                *toggle_keep_prev_mode_{nullptr};
     QAction                *toggle_keep_prev_brightness_contrast_{nullptr};
     QAction                *reset_layout_{nullptr};
 
-    QAction                *createMode_{nullptr};
-    QAction                *createRectangleMode_{nullptr};
-    QAction                *createCircleMode_{nullptr};
-    QAction                *createLineMode_{nullptr};
-    QAction                *createPointMode_{nullptr};
-    QAction                *createLineStripMode_{nullptr};
-    QAction                *createAiPolygonMode_{nullptr};
-    QAction                *createAiMaskMode_{nullptr};
+    QAction                *create_mode_{nullptr};
+    QAction                *create_rectangle_mode_{nullptr};
+    QAction                *create_circle_mode_{nullptr};
+    QAction                *create_line_mode_{nullptr};
+    QAction                *create_point_mode_{nullptr};
+    QAction                *create_line_strip_mode_{nullptr};
+    QAction                *create_ai_polygon_mode_{nullptr};
+    QAction                *create_ai_mask_mode_{nullptr};
 
-    QAction                *editMode_{nullptr};
+    QAction                *edit_mode_{nullptr};
     QAction                *delete_{nullptr};
     QAction                *duplicate_{nullptr};
     QAction                *copy_{nullptr};
     QAction                *paste_{nullptr};
-    QAction                *undoLastPoint_{nullptr};
-    QAction                *removePoint_{nullptr};
+    QAction                *undo_last_point_{nullptr};
+    QAction                *remove_point_{nullptr};
     QAction                *undo_{nullptr};
 
-    QAction                *hideAll_{nullptr};
-    QAction                *showAll_{nullptr};
-    QAction                *toggleAll_{nullptr};
+    QAction                *hide_all_{nullptr};
+    QAction                *show_all_{nullptr};
+    QAction                *toggle_all_{nullptr};
     QAction                *help_{nullptr};
     QAction                *about_{nullptr};
 
-    QAction                *zoomIn_{nullptr};
-    QAction                *zoomOut_{nullptr};
-    QAction                *zoomOrg_{nullptr};
-    QAction                *keepPrevScale_{nullptr};
-    QAction                *fitWindow_{nullptr};
-    QAction                *fitWidth_{nullptr};
-    QAction                *brightnessContrast_{nullptr};
+    QAction                *zoom_in_{nullptr};
+    QAction                *zoom_out_{nullptr};
+    QAction                *zoom_org_{nullptr};
+    QAction                *keep_prev_scale_{nullptr};
+    QAction                *fit_window_{nullptr};
+    QAction                *fit_width_{nullptr};
+    QAction                *brightness_contrast_{nullptr};
 
     QAction                *edit_{nullptr};
     QAction                *fill_drawing_{nullptr};

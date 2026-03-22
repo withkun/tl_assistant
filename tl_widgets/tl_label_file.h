@@ -8,14 +8,14 @@
 
 class ShapeDict {
 public:
-    QString             label;
-    QList<QPointF>      points;
-    QString             shape_type;
-    QMap<QString, bool> flags;
-    QString             description;
-    int32_t             group_id;
-    cv::Mat             mask;
-    QByteArray          other_data;
+    QString                 label;
+    QList<QPointF>          points;
+    QString                 shape_type;
+    QMap<QString, bool>     flags;
+    QString                 description;
+    int32_t                 group_id;
+    cv::Mat                 mask;
+    QMap<QString, QString>  other_data;
 };
 
 class LabelFileError : public std::exception {

@@ -150,8 +150,7 @@ int32_t ShapeListWidget::len() const {
 QList<ShapeListItem *> ShapeListWidget::items() const {
     QList<ShapeListItem *> items;
     for (auto row = 0; row < model_->rowCount(); ++row) {
-        auto *item = static_cast<ShapeListItem *>(model_->item(row));
-        items.push_back(item);
+        items.push_back(static_cast<ShapeListItem *>(model_->item(row)));
     }
     return items;
 }

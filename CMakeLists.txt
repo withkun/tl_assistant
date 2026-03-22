@@ -44,6 +44,7 @@ add_subdirectory(deps/json-3.12.0)
 add_subdirectory(deps/spdlog-1.17.0)
 add_subdirectory(deps/yaml-cpp-0.9.0)
 add_subdirectory(deps/zlib-1.3.2)
+
 set(deps_libraries
     gflags nlohmann_json spdlog::spdlog_header_only yaml-cpp zlib
 )
@@ -137,12 +138,12 @@ set(AI_SOURCES
     tl_modules/sam_session.h
     tl_modules/sam_session.cpp
 
-    tl_modules/sam_assist_annotation.h
-    tl_modules/sam_assist_annotation.ui
-    tl_modules/sam_assist_annotation.cpp
-    tl_modules/sam_prompt_annotation.h
-    tl_modules/sam_prompt_annotation.ui
-    tl_modules/sam_prompt_annotation.cpp
+    tl_modules/info_button.h
+    tl_modules/info_button.cpp
+    tl_modules/ai_prompt_annotation.h
+    tl_modules/ai_prompt_annotation.cpp
+    tl_modules/ai_assist_annotation.h
+    tl_modules/ai_assist_annotation.cpp
 
     sk_measure/sk_measure_contour.h
     sk_measure/sk_measure_contour.cpp

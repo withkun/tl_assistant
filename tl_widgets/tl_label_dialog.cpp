@@ -23,13 +23,13 @@ void LabelLineEdit::keyPressEvent(QKeyEvent *event) {
     }
 }
 
-TlLabelDialog::TlLabelDialog(QWidget *parent,
-                             const QStringList &labels,
-                             const bool sort_labels,
-                             const bool show_text_field,
-                             const QString &completion,
-                             const QMap<QString, bool> &fit_to_content,
-                             const QMap<QString, bool> &flags) : QDialog(parent) {
+LabelDialog::LabelDialog(QWidget *parent,
+                         const QStringList &labels,
+                         const bool sort_labels,
+                         const bool show_text_field,
+                         const QString &completion,
+                         const QMap<QString, bool> &fit_to_content,
+                         const QMap<QString, bool> &flags) : QDialog(parent) {
     if (fit_to_content.isEmpty()) {
         fit_to_content_ = { {"row", false}, {"column", true} };
     } else {
@@ -39,9 +39,9 @@ TlLabelDialog::TlLabelDialog(QWidget *parent,
     edit_ = new LabelLineEdit();
     edit_->setPlaceholderText("Enter object label");
     edit_->setValidator(TlUtils::labelValidator());
-    QObject::connect(edit_, &LabelLineEdit::editingFinished, this, &TlLabelDialog::postProcess);
+    QObject::connect(edit_, &LabelLineEdit::editingFinished, this, &LabelDialog::postProcess);
     if (!flags.isEmpty()) {
-        QObject::connect(edit_, &LabelLineEdit::textChanged, this, &TlLabelDialog::updateFlags);
+        QObject::connect(edit_, &LabelLineEdit::textChanged, this, &LabelDialog::updateFlags);
     }
     edit_group_id_ = new QLineEdit();
     edit_group_id_->setPlaceholderText("Group ID");
@@ -61,8 +61,8 @@ TlLabelDialog::TlLabelDialog(QWidget *parent,
         Qt::Horizontal,
         this
     );
-    QObject::connect(buttonBox_, &QDialogButtonBox::accepted, this, &TlLabelDialog::validate);
-    QObject::connect(buttonBox_, &QDialogButtonBox::rejected, this, &TlLabelDialog::reject);
+    QObject::connect(buttonBox_, &QDialogButtonBox::accepted, this, &LabelDialog::validate);
+    QObject::connect(buttonBox_, &QDialogButtonBox::rejected, this, &LabelDialog::reject);
     layout->addWidget(buttonBox_);
     // label_list
     labelList_ = new QListWidget();
@@ -81,8 +81,8 @@ TlLabelDialog::TlLabelDialog(QWidget *parent,
     } else {
         labelList_->setDragDropMode(QAbstractItemView::InternalMove);
     }
-    QObject::connect(labelList_, &QListWidget::currentItemChanged, this, &TlLabelDialog::labelSelected);
-    QObject::connect(labelList_, &QListWidget::itemDoubleClicked, this, &TlLabelDialog::labelDoubleClicked);
+    QObject::connect(labelList_, &QListWidget::currentItemChanged, this, &LabelDialog::labelSelected);
+    QObject::connect(labelList_, &QListWidget::itemDoubleClicked, this, &LabelDialog::labelDoubleClicked);
     labelList_->setFixedHeight(150);
     edit_->setListWidget(labelList_);
     layout->addWidget(labelList_);
@@ -93,7 +93,7 @@ TlLabelDialog::TlLabelDialog(QWidget *parent,
     flagsLayout_ = new QVBoxLayout();
     resetFlags();
     layout->addItem(flagsLayout_);
-    QObject::connect(edit_, &LabelLineEdit::textChanged, this, &TlLabelDialog::updateFlags);
+    QObject::connect(edit_, &LabelLineEdit::textChanged, this, &LabelDialog::updateFlags);
     // text edit
     editDescription_ = new QTextEdit();
     editDescription_->setPlaceholderText("Label description");
@@ -116,7 +116,7 @@ TlLabelDialog::TlLabelDialog(QWidget *parent,
     edit_->setCompleter(completer);
 }
 
-void TlLabelDialog::addLabelHistory(const QString &label) {
+void LabelDialog::addLabelHistory(const QString &label) {
     if (!labelList_->findItems(label, Qt::MatchExactly).isEmpty()) {
         return;
     }
@@ -126,11 +126,11 @@ void TlLabelDialog::addLabelHistory(const QString &label) {
     }
 }
 
-void TlLabelDialog::labelSelected(QListWidgetItem *item, QListWidgetItem *previous) {
+void LabelDialog::labelSelected(QListWidgetItem *item, QListWidgetItem *previous) {
     edit_->setText(item->text());
 }
 
-void TlLabelDialog::validate() {
+void LabelDialog::validate() {
     if (!edit_->isEnabled()) {
         accept();
         return;
@@ -140,7 +140,7 @@ void TlLabelDialog::validate() {
     }
 }
 
-QString TlLabelDialog::get_stripped_text() {
+QString LabelDialog::get_stripped_text() {
     auto text = edit_->text();
     //if (hasattr(text, "strip")) {
     //    text = text.strip();
@@ -151,15 +151,15 @@ QString TlLabelDialog::get_stripped_text() {
     return text;
 }
 
-void TlLabelDialog::labelDoubleClicked(QListWidgetItem *item) {
+void LabelDialog::labelDoubleClicked(QListWidgetItem *item) {
     validate();
 }
 
-void TlLabelDialog::postProcess() {
+void LabelDialog::postProcess() {
     edit_->setText(get_stripped_text());
 }
 
-void TlLabelDialog::updateFlags(QString label_new) {
+void LabelDialog::updateFlags(QString label_new) {
     // keep state of shared flags
     auto flags_old = getFlags();
 
@@ -176,7 +176,7 @@ void TlLabelDialog::updateFlags(QString label_new) {
     setFlags(flags_new);
 }
 
-void TlLabelDialog::deleteFlags() {
+void LabelDialog::deleteFlags() {
     //for (i in reversed(range(self.flagsLayout.count()))) {
     //    item = self.flagsLayout.itemAt(i).widget();
     //    self.flagsLayout.removeWidget(item);
@@ -184,7 +184,7 @@ void TlLabelDialog::deleteFlags() {
     //}
 }
 
-void TlLabelDialog::resetFlags(QString label) {
+void LabelDialog::resetFlags(QString label) {
     QMap<QString, bool> flags = {};
     //for (pattern, keys in self._flags.items()) {
     //    if (re.match(pattern, label)) {
@@ -196,7 +196,7 @@ void TlLabelDialog::resetFlags(QString label) {
     setFlags(flags);
 }
 
-void TlLabelDialog::setFlags(QMap<QString, bool> &flags) {
+void LabelDialog::setFlags(QMap<QString, bool> &flags) {
     deleteFlags();
     for (auto key : flags.keys()) {
         auto item = new QCheckBox(key, this);
@@ -206,7 +206,7 @@ void TlLabelDialog::setFlags(QMap<QString, bool> &flags) {
     }
 }
 
-QMap<QString, bool> TlLabelDialog::getFlags() {
+QMap<QString, bool> LabelDialog::getFlags() {
     QMap<QString, bool> flags = {};
     for (auto i = 0; i < flagsLayout_->count(); ++i) {
         auto *item = qobject_cast<QCheckBox *>(flagsLayout_->itemAt(i)->widget());
@@ -215,7 +215,7 @@ QMap<QString, bool> TlLabelDialog::getFlags() {
     return flags;
 }
 
-int32_t TlLabelDialog::getGroupId() {
+int32_t LabelDialog::getGroupId() {
     const auto group_id = edit_group_id_->text();
     if (!group_id.isEmpty()) {
         return group_id.toInt();
@@ -223,7 +223,7 @@ int32_t TlLabelDialog::getGroupId() {
     return -1;
 }
 
-std::tuple<QString, QMap<QString, bool>, int32_t, QString> TlLabelDialog::
+std::tuple<QString, QMap<QString, bool>, int32_t, QString> LabelDialog::
 popUp(
     QString text,
     QMap<QString, bool> flags,
@@ -260,7 +260,7 @@ popUp(
     }
     edit_->setText(text);
     edit_->setSelection(0, text.length());
-    if (group_id == -1) {
+    if (group_id == None) {
         edit_group_id_->clear();
     } else {
         edit_group_id_->setText(QString::number(group_id));

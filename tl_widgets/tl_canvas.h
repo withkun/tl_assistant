@@ -59,8 +59,7 @@ public:
     explicit Canvas(float epsilon,
                     const QString &double_click="close",
                     int32_t num_backups=10,
-                    const QMap<QString, bool> &crosshair={},
-                    const std::string &model_name="sam2:latest");
+                    const QMap<QString, bool> &crosshair={});
     ~Canvas() override = default;
 
 protected:
@@ -99,7 +98,7 @@ private:
 
     CanvasMode                  mode_;
 
-    std::string                 sam_session_model_name_{};
+    std::string                 sam_session_model_name_{"sam2:latest"};
     std::unique_ptr<SamSession> sam_session_{nullptr};
 
     QList<TlShape>              shapes_;
@@ -208,7 +207,7 @@ private:
     void restoreCursor();
     void resetState();
 
-    void update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const std::string &createMode);
+    void update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const QString &createMode);
     QPointF snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex);
 };
 #endif // __INC_CANVAS_H

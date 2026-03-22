@@ -1,12 +1,15 @@
 #ifndef __INC_LABEL_DIALOG_H
 #define __INC_LABEL_DIALOG_H
 
+#include "tl_utils.h"
+
 #include <QDialog>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QDialogButtonBox>
 #include <QVBoxLayout>
 #include <QTextEdit>
+
 
 class LabelLineEdit : public QLineEdit {
     Q_OBJECT
@@ -20,16 +23,16 @@ public:
     QListWidget         *list_widget_;
 };
 
-class TlLabelDialog : public QDialog {
+class LabelDialog : public QDialog {
     Q_OBJECT
 public:
-    TlLabelDialog(QWidget *parent,
-                  const QStringList &labels={},
-                  bool sort_labels=true,
-                  bool show_text_field=true,
-                  const QString &completion="startswith",
-                  const QMap<QString, bool> &fit_to_content={},
-                  const QMap<QString, bool> &flags={});
+    LabelDialog(QWidget *parent,
+                const QStringList &labels={},
+                bool sort_labels=true,
+                bool show_text_field=true,
+                const QString &completion="startswith",
+                const QMap<QString, bool> &fit_to_content={},
+                const QMap<QString, bool> &flags={});
 
     QMap<QString, bool>                 fit_to_content_;
     QMap<QString, bool>                 flags_;
@@ -54,6 +57,6 @@ public:
     QMap<QString, bool> getFlags();
     int32_t getGroupId();
     std::tuple<QString, QMap<QString, bool>, int32_t, QString>
-    popUp(QString text="", QMap<QString, bool> flags={}, int32_t group_id=-1, QString description="", bool flags_disabled=false, bool move=true);
+    popUp(QString text="", QMap<QString, bool> flags={}, int32_t group_id=None, QString description="", bool flags_disabled=false, bool move=true);
 };
 #endif // __INC_LABEL_DIALOG_H

@@ -2,7 +2,7 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_CN">
 <context>
-    <name>SamAssistAnnotation</name>
+    <name>AiAssistAnnotation</name>
     <message>
         <source>AI-Assisted Annotation</source>
         <translation>AI辅助标注</translation>
@@ -17,7 +17,7 @@
     </message>
 </context>
 <context>
-    <name>SamPromptAnnotation</name>
+    <name>AiPromptAnnotation</name>
     <message>
         <source>AI Text-to-Annotation</source>
         <translation>AI提示</translation>
@@ -137,8 +137,8 @@
         <translation>标记</translation>
     </message>
     <message>
-        <source>Annotation List</source>
-        <translation>批注列表</translation>
+        <source>Polygon Labels</source>
+        <translation>多边形标签</translation>
     </message>
     <message>
         <source>Select label to start annotating for it. Press &apos;Esc&apos; to deselect.</source>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AiPromptAnnotation</class>
+ <widget class="QWidget" name="AiPromptAnnotation">
+ </widget>
+ <resources>
+  <include location="../resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

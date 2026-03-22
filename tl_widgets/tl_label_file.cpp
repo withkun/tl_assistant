@@ -26,41 +26,41 @@ ShapeDict load_shape_json_obj(const nlohmann::json &shape_json_obj) {
 
     ShapeDict loaded;
     if (!shape_json_obj.contains("label")) {
-        std::cerr << "[load_shape_json_obj] label is required" << std::endl;
+        std::cerr << "[load shape json] label is required" << std::endl;
         throw std::invalid_argument("label is required: {shape_json_obj}");
     }
     if (!shape_json_obj["label"].is_string()) {
-        std::cerr << "[load_shape_json_obj] label mast be string" << std::endl;
+        std::cerr << "[load shape json] label mast be string" << std::endl;
         throw std::invalid_argument("label must be str: {shape_json_obj['label']}");
     }
-    loaded.label = QString::fromStdString(shape_json_obj["label"].get<std::string>());
+    loaded.label = shape_json_obj["label"].get<QString>();
 
     if (!shape_json_obj.contains("points")) {
-        std::cerr << "[load_shape_json_obj] points is required: " << shape_json_obj["label"] << std::endl;
+        std::cerr << "[load shape json] points is required: " << shape_json_obj["label"] << std::endl;
         throw std::invalid_argument("points is required: {shape_json_obj}");
     }
     if (!shape_json_obj["points"].is_array()) {
-        std::cerr << "[load_shape_json_obj] points must be list: " << shape_json_obj["label"] << std::endl;
+        std::cerr << "[load shape json] points must be list: " << shape_json_obj["label"] << std::endl;
         throw std::invalid_argument("points must be list: {shape_json_obj['points']}");
     }
     if (shape_json_obj["points"].empty()) {
-        std::cerr << "[load_shape_json_obj] points must be non-empty: " << shape_json_obj["label"] << std::endl;
+        std::cerr << "[load shape json] points must be non-empty: " << shape_json_obj["label"] << std::endl;
         throw std::invalid_argument("points must be non-empty: {shape_json_obj}");
     }
     for (const auto &pnt : shape_json_obj["points"].get<std::vector<std::vector<float>>>()) {
         if (pnt.size() != 2) {
-            std::cerr << "[load_shape_json_obj] points must be list of [x, y]: " << shape_json_obj["label"] << std::endl;
+            std::cerr << "[load shape json] points must be list of [x, y]: " << shape_json_obj["label"] << std::endl;
             throw std::invalid_argument("points must be list of [x, y]: {shape_json_obj['points']}");
         }
         loaded.points.push_back({pnt[0], pnt[1]});
     }
 
     if (!shape_json_obj.contains("shape_type")) {
-        std::cerr << "[load_shape_json_obj] shape_type is required: " << shape_json_obj["label"] << std::endl;
+        std::cerr << "[load shape json] shape_type is required: " << shape_json_obj["label"] << std::endl;
         throw std::invalid_argument("shape_type is required: {shape_json_obj}");
     }
     if (!shape_json_obj["shape_type"].is_string()) {
-        std::cerr << "[load_shape_json_obj] shape_type mast be string: " << shape_json_obj["label"] << std::endl;
+        std::cerr << "[load shape json] shape_type mast be string: " << shape_json_obj["label"] << std::endl;
         throw std::invalid_argument("shape_type must be str: {shape_json_obj['shape_type']}");
     }
     loaded.shape_type = QString::fromStdString(shape_json_obj["shape_type"].get<std::string>());
@@ -80,31 +80,39 @@ ShapeDict load_shape_json_obj(const nlohmann::json &shape_json_obj) {
     std::string description = "";
     if (shape_json_obj.contains("description") && !shape_json_obj["description"].is_null()) {
         if (!shape_json_obj["description"].is_string()) {
-            std::cerr << "[load_shape_json_obj] description mast be string: " << shape_json_obj["label"] << std::endl;
+            std::cerr << "[load shape json] description mast be string: " << shape_json_obj["label"] << std::endl;
             throw std::invalid_argument("description must be str: {shape_json_obj['description']}");
         }
         loaded.description = QString::fromStdString(shape_json_obj["description"]);
     }
 
-    int32_t group_id = None;
+    loaded.group_id = None;
     if (shape_json_obj.contains("group_id") && !shape_json_obj["group_id"].is_null()) {
         if (!shape_json_obj["group_id"].is_number()) {
-            std::cerr << "[load_shape_json_obj] group_id mast be integer: " << shape_json_obj["label"] << std::endl;
+            std::cerr << "[load shape json] group_id mast be integer: " << shape_json_obj["label"] << std::endl;
             throw std::invalid_argument("group_id must be int: {shape_json_obj['group_id']}");
         }
         loaded.group_id = shape_json_obj["group_id"];
+        if (loaded.group_id == -1) { loaded.group_id = None; }
     }
 
     //mask: NDArray[np.bool] | None = None
     if (shape_json_obj.contains("mask") && !shape_json_obj["mask"].is_null()) {
         if (!shape_json_obj["mask"].is_string()) {
-            std::cerr << "[load_shape_json_obj] mask must be base64-encoded: " << shape_json_obj["label"] << std::endl;
+            std::cerr << "[load shape json] mask must be base64-encoded: " << shape_json_obj["label"] << std::endl;
             throw std::invalid_argument("mask must be base64-encoded PNG: {shape_json_obj['mask']}");
         }
         loaded.mask = TlUtils::img_b64_to_arr(shape_json_obj["mask"]);
     }
 
     //other_data = {k: v for k, v in shape_json_obj.items() if k not in SHAPE_KEYS}
+    for (const auto &it : shape_json_obj.items()) {
+        if (SHAPE_KEYS.contains(it.key())) {
+            continue;
+        }
+
+        //loaded.other_data[it.key()] = it.value();
+    }
 
     //loaded : ShapeDict = ShapeDict(
     //    label=label,
@@ -189,7 +197,7 @@ void TlLabelFile::load(const QString &filename) {
             imagePath = QString::fromStdString(data["imagePath"].get<std::string>());
         }
 
-        if (data.contains("imageData") && data["imageData"].is_string() && !data["imageData"].get<std::string>().empty()) {
+        if (data.contains("imageData") && !data["imageData"].is_null() && !data["imageData"].get<std::string>().empty()) {
             imageData = QByteArray::fromStdString(base64::b64decode(data["imageData"].get<std::string>()));
         } else {
             // relative path from label file to relative path from cwd

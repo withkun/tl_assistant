@@ -22,12 +22,13 @@ QColor TlShape::select_line_color       = QColor(255, 255, 255, 255);
 QColor TlShape::select_fill_color       = QColor(0, 255, 0, 64);
 QColor TlShape::hvertex_fill_color      = QColor(255, 255, 255, 255);
 
-int32_t TlShape::point_type             = TlShape::P_ROUND;
+// Default handle style, size, and zoom scale
+int32_t TlShape::point_type             = P_ROUND;
 int32_t TlShape::point_size             = 8;
 float   TlShape::scale                  = 1.0;
-float   TlShape::scale_                 = 1.0;
 
 QColor TlShape::current_vertex_fill_color;
+float  TlShape::scale_                  = 1.0;
 
 TlShape::TlShape(const QString &label,
                  const QColor &line_color,
@@ -48,7 +49,7 @@ TlShape::TlShape(const QString &label,
     this->selected_                   = false;
     this->flags_                      = flags;
     this->description_                = description;
-    this->other_data_                 ;
+    this->other_data_                 = {};
     this->mask_                       = mask;
 
     this->highlightIndex_             = None;
@@ -60,6 +61,7 @@ TlShape::TlShape(const QString &label,
 
     this->closed_                     = false;
 
+    // Per-instance line color override (used for the pending line).
     this->line_color_                 = line_color;
     this->fill_color_                 = TlShape::fill_color;
     this->select_line_color_          = TlShape::select_line_color;
@@ -70,12 +72,13 @@ TlShape::TlShape(const QString &label,
     this->point_size_                 = TlShape::point_size;
     this->scale_                      = TlShape::scale;
     this->current_vertex_fill_color_  = TlShape::current_vertex_fill_color;
+
     this->uuid_                       = QUuid::createUuid().toString();
 }
 
 QPointF TlShape::scale_point(const QPointF &point) {
     // 展示缩放: 这里需要使用Canvas设置的全局变量, 其余计算使用局部变量始终保持为1.
-    return QPointF(point.x() * TlShape::scale, point.y() * TlShape::scale);
+    return QPointF(point.x() * TlShape::scale_, point.y() * TlShape::scale_);
 }
 
 void TlShape::setShapeRefined(const QString &shape_type, const QList<QPointF> &points, const QList<int32_t> &point_labels, const cv::Mat &mask) {
@@ -215,7 +218,7 @@ void TlShape::paint(QPainter &painter) {
         image_to_draw.setTo(cv::Scalar(r, g, b, a), mask_);
         auto qimage = QImage::fromData(TlUtils::img_arr_to_data(image_to_draw));
         qimage = qimage.scaled(
-            qimage.size() * scale,  // 展示图使用全局
+            qimage.size() * scale_,
             Qt::IgnoreAspectRatio,
             Qt::SmoothTransformation
         );
@@ -344,7 +347,7 @@ void TlShape::drawVertex(QPainterPath &path, int32_t i) {
     }
 }
 
-int32_t TlShape::nearestVertex(QPointF point, int32_t epsilon) {
+int32_t TlShape::nearestVertex(QPointF point, float epsilon) {
     auto min_distance = std::numeric_limits<float>::max();
     int32_t min_i = None;
     point = QPointF(point.x() * scale_, point.y() * scale_);
@@ -359,15 +362,13 @@ int32_t TlShape::nearestVertex(QPointF point, int32_t epsilon) {
     return min_i;
 }
 
-int32_t TlShape::nearestEdge(QPointF point, int32_t epsilon) {
+int32_t TlShape::nearestEdge(QPointF point, float epsilon) {
     auto min_distance = std::numeric_limits<float>::max();
     auto post_i = None;
-    point = QPointF(point.x() * scale_, point.y() * scale_);
+    point = scale_point(point);
     for (auto i = 0; i < points_.size(); ++i) {
-        auto start = (i > 0) ? points_[i - 1] : points_[points_.size() - 1];
-        auto end = points_[i];
-        start = QPointF(start.x() * scale_, start.y() * scale_);
-        end = QPointF(end.x() * scale_, end.y() * scale_);
+        auto start = scale_point((i > 0) ? points_[i - 1] : points_[points_.size() - 1]);
+        auto end = scale_point(points_[i]);
         auto line = QLineF{start, end};
         auto dist = TlUtils::distanceToLine(point, line);
         if (dist <= epsilon && dist < min_distance) {
@@ -379,21 +380,25 @@ int32_t TlShape::nearestEdge(QPointF point, int32_t epsilon) {
 }
 
 bool TlShape::containsPoint(QPointF point) {
-    if (std::set<QString>{"line", "linestrip", "points"}.contains(this->shape_type_)) {
+    if (QKey{"line", "linestrip", "points"}.contains(this->shape_type_)) {
         return false;
     }
-    if (!mask_.empty()) {
-        auto y = np::clip(
-            static_cast<int32_t>(round(point.y() - points_[0].y())),
-            0,
-            mask_.rows - 1
-        );
-        auto x = np::clip(
-            static_cast<int32_t>(round(point.x() - points_[0].x())),
-            0,
-            mask_.cols - 1
-        );
-        return mask_.at<bool>(y, x);
+    if (this->shape_type_ == "point") {
+        if (this->points_.empty())
+            return false;
+        return TlUtils::distance(point - this->points_[0]) <= this->point_size / 2;
+    }
+    if (!this->mask_.empty()) {
+        int32_t raw_y = int(round(point.y() - this->points_[0].y()));
+        int32_t raw_x = int(round(point.x() - this->points_[0].x()));
+        if (
+            raw_y < 0
+            || raw_y >= this->mask_.rows
+            || raw_x < 0
+            || raw_x >= this->mask_.cols
+        )
+            return false;
+        return mask_.at<bool>(raw_y, raw_x);
     }
     return makePath().contains(point);
 }
@@ -433,25 +438,30 @@ void TlShape::moveVertex(int32_t i, const QPointF &pos) {
 }
 
 void TlShape::highlightVertex(int32_t i, int32_t action) {
-    //Highlight a vertex appropriately based on the current action
-    //
-    //Args:
-    //    i (int): The vertex index
-    //    action (int): The action
-    //    (see Shape.NEAR_VERTEX and Shape.MOVE_VERTEX)
-    //
     highlightIndex_ = i;
     highlightMode_ = action;
 }
 
 void TlShape::highlightClear() {
-    //Clear the highlighted point
     highlightIndex_ = None;
 }
 
 TlShape TlShape::copy() const {
-    //return copy.deepcopy(self)
     return *this;
+}
+
+int32_t TlShape::len() const {
+    return static_cast<int32_t>(points_.size());
+}
+
+//def __getitem__(self, key):
+//    return self.points[key]
+
+//def __setitem__(self, key, value):
+//    self.points[key] = value
+
+QString TlShape::key() const {
+    return this->uuid_;
 }
 
 TlShape TlShape::clone() const {
@@ -459,20 +469,6 @@ TlShape TlShape::clone() const {
     shape.uuid_ = QUuid::createUuid().toString();
     return shape;
 }
-
-int32_t TlShape::len() const {
-    return static_cast<int32_t>(points_.size());
-}
-
-QString TlShape::key() const {
-    return this->uuid_;
-}
-
-//def __getitem__(self, key):
-//    return self.points[key]
-//
-//def __setitem__(self, key, value):
-//    self.points[key] = value
 
 TlShape::TlShape(const TlShape &shape) {
     this->SetValue(shape);

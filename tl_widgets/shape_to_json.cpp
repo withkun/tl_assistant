@@ -22,13 +22,17 @@ void to_json(nlohmann::json &json, const TlShape &shape) {
 
     json["label"]       = shape.label_;
     json["points"]      = shape_points;
-    json["group_id"]    = shape.group_id_;
+    if (shape.group_id_ == None) {
+        json["group_id"]= nullptr;
+    } else {
+        json["group_id"]= shape.group_id_;
+    }
     json["description"] = shape.description_;
     json["shape_type"]  = shape.shape_type_;
     json["flags"]       = nullptr;  //shape.flags_ ;
 
     if (shape.mask_.empty()) {
-        json["mask"]    = std::nullptr_t();
+        json["mask"]    = nullptr;
     } else {
         //QByteArray imageData;
         //QBuffer buffer(&imageData);
@@ -42,20 +46,22 @@ void to_json(nlohmann::json &json, const TlShape &shape) {
 void from_json(const nlohmann::json &json, TlShape &shape) {
 try {
     shape.label_ = json["label"].get<QString>();
-    if (json["group_id"].is_number()) {
+    if (json.contains("group_id") && !json["description"].is_null()) {
         shape.group_id_ = json["group_id"].get<int32_t>();
     }
-    if (json.contains("description") && json["description"].is_string()) {
+    if (shape.group_id_ == -1) { shape.group_id_ = None; }
+
+    if (json.contains("description") && !json["description"].is_null()) {
         shape.description_ = json["description"].get<QString>();
     }
     shape.shape_type_  = json["shape_type"].get<QString>();
     //shape.flags_       = json["flags"].get<std::string>();
 
-    for (const auto &pnt : json["points"].get<std::vector<std::pair<float, float>>>()) {
-        shape.points_.push_back({pnt.first, pnt.second});
+    for (const auto &[x, y] : json["points"].get<std::vector<std::pair<float, float>>>()) {
+        shape.points_.push_back({x, y});
     }
 
-    if (json["mask"].is_string()) {
+    if (json.contains("mask") && !json["mask"].is_null()) {
         const auto mask = json["mask"].get<std::string>();
         //QByteArray byteArray;
         //byteArray.fromStdString(base64::b64decode(mask));
@@ -86,7 +92,11 @@ void to_json(nlohmann::ordered_json &json, const TlShape &shape) {
 try {
     json["label"]       = shape.label_;
     json["points"]      = shape_points;
-    json["group_id"]    = shape.group_id_;
+    if (shape.group_id_ == None) {
+        json["group_id"] = std::nullptr_t();
+    } else {
+        json["group_id"] = shape.group_id_;
+    }
     json["description"] = shape.description_;
     json["shape_type"]  = shape.shape_type_;
     json["flags"]       = nlohmann::json({});  //shape.flags_ ;
@@ -113,7 +123,11 @@ try {
     if (json["group_id"].is_number()) {
         shape.group_id_ = json["group_id"].get<int32_t>();
     }
-    shape.description_  = json["description"].get<QString>();
+    if (shape.group_id_ == -1) { shape.group_id_ = None; }
+
+    if (json.contains("description") && !json["description"].is_null()) {
+        shape.description_ = json["description"].get<QString>();
+    }
     shape.shape_type_   = json["shape_type"].get<QString>();
     //shape.flags_        = json["flags"].get<std::string>();
 
@@ -122,7 +136,7 @@ try {
         shape.points_.push_back({pnt[0], pnt[1]});
     }
 
-    if (json["mask"].is_string()) {
+    if (json.contains("mask") && !json["mask"].is_null()) {
         const auto mask = json["mask"].get<std::string>();
         //QByteArray byteArray;
         //byteArray.fromStdString(base64::b64decode(mask));
