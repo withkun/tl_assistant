@@ -721,7 +721,7 @@ void MainWindow::setup_dock_widgets() {
     files_search_ = new QLineEdit();
     files_search_->setPlaceholderText(tr("Search Filename"));
     QObject::connect(files_search_, &QLineEdit::textChanged, this, &MainWindow::fileSearchChanged);
-    files_list_ = new TlFilesList();
+    files_list_ = new QListWidget();
     QObject::connect(files_list_, &QListWidget::itemSelectionChanged, this, &MainWindow::fileSelectionChanged);
     auto *files_layout = new QVBoxLayout();
     files_layout->setContentsMargins(0, 0, 0, 0);
@@ -2032,8 +2032,8 @@ void MainWindow::changeOutputDirDialog(bool _value) {
         this,
         tr("%1 - Save/Load Annotations in Directory").arg(qAppName()),
         default_output_dir,
-        QFileDialog::ShowDirsOnly
-        | QFileDialog::DontResolveSymlinks
+        QFileDialog::ShowDirsOnly |
+        QFileDialog::DontResolveSymlinks
     );
     //output_dir = str(output_dir)
 
@@ -2311,8 +2311,8 @@ void MainWindow::open_dir_with_dialog(bool value) {
             this,
             tr("%1 - Open Directory").arg(qAppName()),
             defaultOpenDirPath,
-            QFileDialog::ShowDirsOnly
-            | QFileDialog::DontResolveSymlinks
+            QFileDialog::ShowDirsOnly |
+            QFileDialog::DontResolveSymlinks
         )
     );
     import_images_from_dir(targetDirPath);
@@ -2322,7 +2322,7 @@ void MainWindow::open_dir_with_dialog(bool value) {
 QStringList MainWindow::imageList() {
     QStringList lst;
     for (auto i = 0; i < files_list_->count(); ++i) {
-        auto *item = files_list_->item(i);
+        auto *const item = files_list_->item(i);
         lst.append(item->text());
     }
     return lst;
@@ -2393,11 +2393,7 @@ void MainWindow::import_images_from_dir(const QString &root_dir, const QString &
             auto label_file_without_path = fileInfo.baseName();
             label_file = output_dir_ + "/" + label_file_without_path;
         }
-        auto *item = new QListWidgetItem();
-        item->setIcon(QIcon(QPixmap(filename).scaled(128, 128)));
-        item->setText(filename);
-        item->setToolTip(filename);
-        item->setSizeHint(QSize(128, 128));
+        auto *const item = new QListWidgetItem(filename);
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         if (QFile::exists(label_file) && TlLabelFile::is_label_file(label_file)) {
             item->setCheckState(Qt::Checked);

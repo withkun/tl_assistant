@@ -16,7 +16,6 @@
 #include "tl_widgets/tl_label_file.h"
 #include "tl_widgets/tl_label_dialog.h"
 #include "tl_widgets/zoom_widget.h"
-#include "tl_widgets/tl_files_list.h"
 #include "tl_widgets/tl_train_widget.h"
 
 #include "tl_modules/ai_assist_annotation.h"
@@ -99,7 +98,7 @@ private:
     ShapeListWidget                                *shape_list_{nullptr};       // 轮廓列表
 
     QDockWidget                                    *files_dock_{nullptr};
-    TlFilesList                                    *files_list_{nullptr};       // 文件列表
+    QListWidget                                    *files_list_{nullptr};       // 文件列表
     QLineEdit                                      *files_search_{nullptr};
 
     QWidgetAction                                  *zoom_action_{nullptr};

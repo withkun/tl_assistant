@@ -87,9 +87,6 @@ set(TL_SOURCES
     tl_widgets/tl_shape_list.cpp
     tl_widgets/tl_brightness.h
     tl_widgets/tl_brightness.cpp
-    tl_widgets/tl_files_list.h
-    tl_widgets/tl_files_list.cpp
-    #tl_widgets/tl_chart_view.h
     tl_widgets/tl_file_watcher.h
     tl_widgets/tl_file_watcher.cpp
     tl_widgets/tl_train_widget.h

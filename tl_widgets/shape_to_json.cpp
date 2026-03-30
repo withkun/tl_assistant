@@ -46,7 +46,7 @@ void to_json(nlohmann::json &json, const TlShape &shape) {
 void from_json(const nlohmann::json &json, TlShape &shape) {
 try {
     shape.label_ = json["label"].get<QString>();
-    if (json.contains("group_id") && !json["description"].is_null()) {
+    if (json.contains("group_id") && !json["group_id"].is_null()) {
         shape.group_id_ = json["group_id"].get<int32_t>();
     }
     if (shape.group_id_ == -1) { shape.group_id_ = None; }
