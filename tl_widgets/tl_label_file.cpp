@@ -102,7 +102,7 @@ ShapeDict load_shape_json_obj(const nlohmann::json &shape_json_obj) {
             std::cerr << "[load shape json] mask must be base64-encoded: " << shape_json_obj["label"] << std::endl;
             throw std::invalid_argument("mask must be base64-encoded PNG: {shape_json_obj['mask']}");
         }
-        loaded.mask = TlUtils::img_b64_to_arr(shape_json_obj["mask"]);
+        loaded.mask = utils::img_b64_to_arr(shape_json_obj["mask"]);
     }
 
     //other_data = {k: v for k, v in shape_json_obj.items() if k not in SHAPE_KEYS}

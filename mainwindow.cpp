@@ -143,7 +143,7 @@ MainWindow::MainWindow(const QString &config_file,
 
 void MainWindow::setup_actions() {
     const auto action = [this](const QString &text, auto slot, const QList<QString> &shortcut={}, const QString &file="", const QString &tip="", bool checkable=false, bool enabled=true, bool checked=false) {
-        auto *a = TlUtils::newAction(text, shortcut, file, tip, checkable, enabled, checked);
+        auto *a = utils::newAction(text, shortcut, file, tip, checkable, enabled, checked);
         QObject::connect(a, &QAction::triggered, this, slot);
         return a;
     };
@@ -302,7 +302,7 @@ void MainWindow::setup_actions() {
                 "%1 %2 and %3 from the canvas."
             )
         ).arg(
-            TlUtils::fmtShortcut(shortcuts("zoom_in")), TlUtils::fmtShortcut(shortcuts("zoom_out")),
+            utils::fmtShortcut(shortcuts("zoom_in")), utils::fmtShortcut(shortcuts("zoom_out")),
             tr("Ctrl+Wheel")
         )
     );
@@ -428,7 +428,7 @@ void MainWindow::setup_actions() {
 
 void MainWindow::setup_menus() {
     const auto action = [this](const QString &text, auto slot, const QList<QString> &shortcut={}, const QString &file="", const QString &tip="", bool checkable=false, bool enabled=true, bool checked=false) {
-        auto *a = TlUtils::newAction(text, shortcut, file, tip, checkable, enabled, checked);
+        auto *a = utils::newAction(text, shortcut, file, tip, checkable, enabled, checked);
         QObject::connect(a, &QAction::triggered, this, slot);
         return a;
     };
@@ -452,11 +452,11 @@ void MainWindow::setup_menus() {
     recent_menu_ = menu(tr("Open &Recent"));
 
     label_menu_ = new QMenu();
-    TlUtils::addActions(label_menu_, {edit_, delete_});
+    utils::addActions(label_menu_, {edit_, delete_});
     shape_list_->setContextMenuPolicy(Qt::CustomContextMenu);
     QObject::connect(shape_list_, &ShapeListWidget::customContextMenuRequested, this, &MainWindow::popLabelListMenu);
 
-    TlUtils::addActions(
+    utils::addActions(
         file_menu_,
         {
             open_,
@@ -477,8 +477,8 @@ void MainWindow::setup_menus() {
             quit_
         }
     );
-    TlUtils::addActions(help_menu_, {help_, about_});
-    TlUtils::addActions(
+    utils::addActions(help_menu_, {help_, about_});
+    utils::addActions(
         view_menu_,
         {
             flags_dock_->toggleViewAction(),
@@ -509,10 +509,10 @@ void MainWindow::setup_menus() {
 
     QObject::connect(file_menu_, &QMenu::aboutToShow, this, &MainWindow::updateFileMenu);
 
-    TlUtils::addActions(
+    utils::addActions(
         canvas_->menus_[0], this->context_menu_actions_
     );
-    TlUtils::addActions(
+    utils::addActions(
         canvas_->menus_[1],
         {
             action("&Copy here", [this]() { this->copyShape(); }),
@@ -801,7 +801,7 @@ QString MainWindow::load_config(
 QMenu *MainWindow::menu(const QString &title, const std::list<QObject *> &actions) {
     auto *menu = this->menuBar()->addMenu(title);
     if (!actions.empty()) {
-        TlUtils::addActions(menu, actions);
+        utils::addActions(menu, actions);
     }
     return menu;
 }
@@ -813,7 +813,7 @@ bool MainWindow::noShapes() {
 
 void MainWindow::populateModeActions() {
     canvas_->menus_[0]->clear();
-    TlUtils::addActions(
+    utils::addActions(
         this->canvas_->menus_[0], context_menu_actions_
     );
     this->edit_menu_->clear();
@@ -822,7 +822,7 @@ void MainWindow::populateModeActions() {
     actions.push_back(edit_mode_);
     std::ranges::transform(edit_menu_actions_, std::back_inserter(actions), [](auto &it){ return it; });
 
-    TlUtils::addActions(this->edit_menu_, actions);
+    utils::addActions(this->edit_menu_, actions);
 }
 
 QString MainWindow::get_window_title(bool dirty) {
@@ -919,20 +919,12 @@ void MainWindow::submit_ai_prompt() {
         text_osam_session_ = std::make_unique<SamSession>(model_name);
     }
 
-    const auto image = TlUtils::ImageToMat(image_);
-    const auto image_id = std::hash<QString>{}(filename_);
-    const GenerateResponse response = text_osam_session_->run(image, image_id, {}, {}, texts);
     //boxes, scores, labels, masks = bbox_from_text.get_bboxes_from_texts(
     //    session=this->_text_osam_session,
     //    image=utils.img_qt_to_arr(this->image)[:, :, :3],
     //    image_id=str(hash(this->imagePath)),
     //    texts=texts,
     //);
-    std::vector<float> scores;
-    std::vector<int32_t> labels;
-    std::vector<cv::Rect> boxes;
-    std::vector<cv::Mat> masks;
-    get_bboxes_from_texts(response, scores, labels, boxes, masks);
 
     //SCORE_FOR_EXISTING_SHAPE: float = 1.01;
     //for shape in this->canvas.shapes:
@@ -975,23 +967,10 @@ void MainWindow::submit_ai_prompt() {
     //    masks=masks,
     //    shape_type=shape_type,
     //);
-    QList<TlShape> shapes;
-    for (const auto &annotation : response.annotations) {
-        shapes.push_back({});
-        auto &shape = shapes.back();
-        shape.label_ = QString::fromStdString(texts[0]);
-        shape.closed_ = true;
-        if (annotation.mask.empty()) {
-            shape.shape_type_ = "rectangle";
-            shape.points_ = {QPointF(annotation.bbox.x1, annotation.bbox.y1), QPointF(annotation.bbox.x2, annotation.bbox.y2)};
-        } else {
-            shape.shape_type_ = "polygon";
-            const auto x1 = annotation.bbox.x1;
-            const auto y1 = annotation.bbox.y1;
-            auto points = measure::compute_polygon_from_mask(annotation.mask);
-            std::ranges::transform(points, std::back_inserter(shape.points_), [x1, y1](auto &p) { return QPointF(x1+p.x, y1+p.y); });
-        }
-    }
+
+    const auto image = utils::ImageToMat(image_);
+    const auto image_id = std::hash<QString>{}(filename_);
+    QList<TlShape> shapes = bbox_from_text::get_shapes_from_texts(text_osam_session_.get(), image, image_id, texts);
 
     this->canvas_->storeShapes();
     this->load_shapes(shapes, false);
@@ -1085,7 +1064,7 @@ void MainWindow::updateFileMenu() {
     //files = [f for f in self.recentFiles if f != current and exists(f)]
     for (auto i = 0; i < files.size(); ++i) {
         const auto f = files[i];
-        auto icon = TlUtils::newIcon("labels");
+        auto icon = utils::newIcon("labels");
         const auto action = new QAction(
             icon, QString("&%1 %2").arg(i + 1).arg(QFileInfo(f).fileName()), this
         );
@@ -1207,14 +1186,15 @@ void MainWindow::edit_label(bool value) {
                     .arg(r, 2, 16, QLatin1Char('0')).arg(g, 2, 16, QLatin1Char('0')).arg(b, 2, 16, QLatin1Char('0'))
             );
         } else {
-            item->setText(QString("%1 (%2)").arg(shape.label_, shape.group_id_));
+            item->setText(QString("%1 (%2)").arg(shape.label_).arg(shape.group_id_));
         }
+        item->setShape(shape);  // 由于保存的是对象, 需要更新到回去.
+        canvas_->update_label(shape);
         this->setDirty();
         if (this->label_list_->find_label_item(shape.label_) == nullptr)
             this->label_list_->add_label_item(
                 shape.label_, get_rgb_by_label(shape.label_)
             );
-        item->setShape(shape);  // 由于保存的是对象, 需要更新回去.
     }
 }
 

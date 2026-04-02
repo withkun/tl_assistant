@@ -2,8 +2,11 @@
 #define __INC_BBOX_FROM_TEXT_H
 
 #include "base/types.h"
+#include "sam_session.h"
 #include "tl_widgets/tl_shape.h"
 
+
+namespace bbox_from_text {
 void get_bboxes_from_texts(
     const GenerateResponse &response,
     std::vector<float> &scores,
@@ -30,4 +33,9 @@ QList<TlShape> get_shapes_from_bboxes(
 //    shape_type: Literal["rectangle", "polygon", "mask"],
 );
 
+QList<TlShape> get_shapes_from_texts(
+    SamSession *sam_session,
+    const cv::Mat &image, size_t image_id, const std::vector<std::string> &texts
+);
+} // namespace bbox_from_text
 #endif // __INC_BBOX_FROM_TEXT_H

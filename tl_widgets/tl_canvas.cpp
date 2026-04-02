@@ -150,7 +150,7 @@ void Canvas::update_shape_with_ai(const QList<QPointF> &points, const QList<int3
     point_labels.reserve(labels.size());
     std::ranges::transform(labels, std::back_inserter(point_labels), [](const auto &v) { return static_cast<float>(v); });
 
-    const auto image = TlUtils::PixmapToMat(pixmap_);
+    const auto image = utils::PixmapToMat(pixmap_);
     const GenerateResponse response = get_osam_session().run(
         image,
         pixmap_hash_,
@@ -1067,7 +1067,7 @@ bool Canvas::closeEnough(const QPointF &p1, const QPointF &p2) {
     // m = (p1-p2).manhattanLength()
     // print "d %.2f, m %d, %.2f" % (d, m, d - m)
     // divide by scale to allow more precision when zoomed in
-    return TlUtils::distance(p1 - p2) < (epsilon_ / scale_);
+    return utils::distance(p1 - p2) < (epsilon_ / scale_);
 }
 
 QPointF Canvas::intersectionPoint(const QPointF &p1, const QPointF &p2) {
@@ -1137,7 +1137,7 @@ std::vector<std::tuple<qreal, int32_t, QPointF>> Canvas::intersectingEdges(const
             const auto x = x1 + ua * (x2 - x1);
             const auto y = y1 + ua * (y2 - y1);
             const auto m = QPointF((x3 + x4) / 2, (y3 + y4) / 2);
-            const auto d = TlUtils::distance(m - QPointF(x2, y2));
+            const auto d = utils::distance(m - QPointF(x2, y2));
             //yield d, i, (x, y);
             results.emplace_back(std::make_tuple(d, i, QPointF(x,y)));
         }
@@ -1353,7 +1353,7 @@ void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlS
         int32_t y2;
         int32_t x2;
         if (response.annotations[0].bbox.isNone()) {
-            const cv::Rect bbox = TlUtils::masks_to_bboxes(response.annotations[0].mask);
+            const cv::Rect bbox = utils::masks_to_bboxes(response.annotations[0].mask);
             x1 = bbox.x; y1 = bbox.y;
             x2 = bbox.x + bbox.width; y2 = bbox.y + bbox.height;
         } else {
@@ -1397,4 +1397,15 @@ QPointF Canvas::snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex)
         np::sign(pos_from_opposite.x()) * square_size,
         np::sign(pos_from_opposite.y()) * square_size
     );
+}
+
+void Canvas::update_label(const TlShape &shape) {
+    for (auto &s : shapes_) {
+        if (s == shape) {
+            s.label_       = shape.label_;
+            s.flags_       = shape.flags_;
+            s.group_id_    = shape.group_id_;
+            s.description_ = shape.description_;
+        }
+    }
 }

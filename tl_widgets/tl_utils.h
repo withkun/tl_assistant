@@ -13,10 +13,9 @@ inline constexpr int32_t None = std::numeric_limits<int32_t>::min();
 
 using QKey = std::set<QString>;
 
-class TlUtils {
+class utils {
   public:
-    static QIcon newIcon(QString icon);
-    static QPushButton *newButton(QString text, QString icon="", const std::function<void()> &slot=nullptr);
+    static QIcon newIcon(const QString &icon);
 
     static QValidator *labelValidator();
 
@@ -45,6 +44,5 @@ class TlUtils {
     static QByteArray img_arr_to_data(const cv::Mat &img_data);
 
     static cv::Mat img_b64_to_arr(const std::string &b64_string);
-
 };
 #endif // __INC_UTILS_H

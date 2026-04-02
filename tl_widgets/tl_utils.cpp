@@ -9,23 +9,12 @@
 #include <QCryptographicHash>
 
 
-QIcon TlUtils::newIcon(QString icon) {
+QIcon utils::newIcon(const QString &icon) {
     const QString icons_dir(":/icons/" + icon + ".png");
     return QIcon(icons_dir);
 }
 
-QPushButton *newButton(QString text, QString icon, const std::function<void()> &slot) {
-    auto b = new QPushButton(text);
-    //if (!icon.isEmpty()) {
-    //    b->setIcon(newIcon(icon));
-    //}
-    //if (slot != nullptr) {
-    //    QObject::connect(b, clicked, this, slot);
-    //}
-    return b;
-}
-
-QString TlUtils::fmtShortcut(const QList<QString> &text) {
+QString utils::fmtShortcut(const QList<QString> &text) {
     if (text.empty()) { return ""; }
     auto slist = text[0].split("+");
     if (slist.size() < 2) { return text[0]; }
@@ -33,7 +22,7 @@ QString TlUtils::fmtShortcut(const QList<QString> &text) {
     return QString("<b>%1</b>+<b>%2</b>").arg(mod, key);
 }
 
-QAction *TlUtils::newAction(const QString &text, const QList<QString> &shortcut, const QString &file, const QString &tip, bool checkable, bool enabled, bool checked) {
+QAction *utils::newAction(const QString &text, const QList<QString> &shortcut, const QString &file, const QString &tip, bool checkable, bool enabled, bool checked) {
     auto *a = new QAction(text);
     const QIcon icon(file);
     if (!icon.isNull()) {
@@ -62,7 +51,7 @@ QAction *TlUtils::newAction(const QString &text, const QList<QString> &shortcut,
     return a;
 };
 
-void TlUtils::addActions(QMenu *menu, const std::list<QObject *> &actions) {
+void utils::addActions(QMenu *menu, const std::list<QObject *> &actions) {
     for (auto *a : actions) {
         if (a == nullptr) {
             menu->addSeparator();
@@ -74,7 +63,7 @@ void TlUtils::addActions(QMenu *menu, const std::list<QObject *> &actions) {
     }
 }
 
-void TlUtils::addActions(QToolBar *tool, const std::list<QAction *> &actions) {
+void utils::addActions(QToolBar *tool, const std::list<QAction *> &actions) {
     for (const auto &a : actions) {
         if (a == nullptr) {
             tool->addSeparator();
@@ -84,7 +73,7 @@ void TlUtils::addActions(QToolBar *tool, const std::list<QAction *> &actions) {
     }
 }
 
-QValidator *TlUtils::labelValidator() {
+QValidator *utils::labelValidator() {
     return new QRegularExpressionValidator(QRegularExpression("^[^ \t].+"));
 }
 
@@ -167,17 +156,17 @@ static float distancePtSeg(const std::vector<float> &P, const std::vector<float>
 }
 
 // 计算点到原点的距离
-qreal TlUtils::distance(const QPointF &p) {
+qreal utils::distance(const QPointF &p) {
     return std::sqrt(p.x() * p.x() + p.y() * p.y());
 }
 
 // 计算两点之间的距离
-qreal TlUtils::distance(const QPointF &p1, const QPointF &p2) {
+qreal utils::distance(const QPointF &p1, const QPointF &p2) {
     return distance(p1 - p2);
 }
 
 // 计算点到线段的距离
-qreal TlUtils::distanceToLine(const QPointF &point, const QLineF &line) {
+qreal utils::distanceToLine(const QPointF &point, const QLineF &line) {
     /* 点到线段距离:
      *
      *  方法一: 经典算法
@@ -223,7 +212,7 @@ qreal TlUtils::distanceToLine(const QPointF &point, const QLineF &line) {
     //return np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(p2 - p1);
 }
 
-QString TlUtils::HashPixmap(const QPixmap &pixmap) {
+QString utils::HashPixmap(const QPixmap &pixmap) {
     QImage image = pixmap.toImage();
     QByteArray byteArray;
     QBuffer buffer(&byteArray);
@@ -239,7 +228,7 @@ QString TlUtils::HashPixmap(const QPixmap &pixmap) {
     return hashString;
 }
 
-cv::Mat TlUtils::ImageToMat(const QImage &image) {
+cv::Mat utils::ImageToMat(const QImage &image) {
     switch (image.format()) {
         case QImage::Format_Grayscale8: {     // 灰度图, 每个像素点1个字节(8位)
             // Mat构造：行数, 列数, 存储结构, 数据, step每行多少字节
@@ -262,7 +251,7 @@ cv::Mat TlUtils::ImageToMat(const QImage &image) {
     }
 }
 
-QImage TlUtils::MatToImage(const cv::Mat &mat) {
+QImage utils::MatToImage(const cv::Mat &mat) {
     const auto cv_type = mat.type(); //防止警告
     switch (cv_type) {
         case CV_8UC1: {
@@ -284,15 +273,15 @@ QImage TlUtils::MatToImage(const cv::Mat &mat) {
     }
 }
 
-cv::Mat TlUtils::PixmapToMat(const QPixmap &pixmap) {
+cv::Mat utils::PixmapToMat(const QPixmap &pixmap) {
     return ImageToMat(pixmap.toImage());
 }
 
-QPixmap TlUtils::MatToPixmap(const cv::Mat &mat) {
+QPixmap utils::MatToPixmap(const cv::Mat &mat) {
     return QPixmap::fromImage(MatToImage(mat));
 }
 
-cv::Rect TlUtils::masks_to_bboxes(const cv::Mat &mask) {
+cv::Rect utils::masks_to_bboxes(const cv::Mat &mask) {
     // 查找轮廓
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
@@ -315,17 +304,17 @@ cv::Rect TlUtils::masks_to_bboxes(const cv::Mat &mask) {
     return cv::boundingRect(contours[max_length_index]);
 }
 
-cv::Mat TlUtils::img_data_to_arr(const QByteArray &img_data) {
+cv::Mat utils::img_data_to_arr(const QByteArray &img_data) {
     return cv::Mat();
 }
 
-QByteArray TlUtils::img_arr_to_data(const cv::Mat &img_data) {
+QByteArray utils::img_arr_to_data(const cv::Mat &img_data) {
     std::vector<uint8_t> im_data;
     cv::imencode(".png", img_data, im_data);
     return QByteArray(im_data);
 }
 
-cv::Mat TlUtils::img_b64_to_arr(const std::string &b64_string) {
+cv::Mat utils::img_b64_to_arr(const std::string &b64_string) {
     std::string im_data = base64::b64decode(b64_string);
     return cv::imdecode(std::vector<uint8_t>{im_data.begin(), im_data.end()}, cv::IMREAD_GRAYSCALE);
 }

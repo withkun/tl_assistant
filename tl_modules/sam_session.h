@@ -29,4 +29,4 @@ private:
     std::deque<CacheValue>      embedding_cache_;
     void CloneOrtValue(Ort::Value &tensor, Ort::Value &value) const;
 };
-#endif// __INC_SAM_SESSION_H
+#endif // __INC_SAM_SESSION_H

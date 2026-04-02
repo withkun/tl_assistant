@@ -100,8 +100,6 @@ set(TL_SOURCES
 )
 
 set(AI_SOURCES
-    tl_modules/base/format_cv.h
-    tl_modules/base/format_qt.h
     tl_modules/base/blob.h
     tl_modules/base/blob.cpp
     tl_modules/base/types.h
@@ -112,23 +110,22 @@ set(AI_SOURCES
     tl_modules/base/sam_base.cpp
     tl_modules/base/ort_logging.h
     tl_modules/base/ort_logging.cpp
-    tl_modules/base/tokenizer.h
-    tl_modules/base/tokenizer.cpp
+    tl_modules/base/format_cv.h
+    tl_modules/base/format_qt.h
     tl_modules/base/ort_utils.h
     tl_modules/base/ort_utils.cpp
 
     tl_modules/sam1/tl_sam1.h
     tl_modules/sam1/tl_sam1.cpp
-
     tl_modules/sam2/tl_sam2.h
     tl_modules/sam2/tl_sam2.cpp
-
     tl_modules/efficientsam/tl_efficient_sam.h
     tl_modules/efficientsam/tl_efficient_sam.cpp
 
+    tl_modules/base/tokenizer.h
+    tl_modules/base/tokenizer.cpp
     tl_modules/yoloworld/tl_yolo_world.h
     tl_modules/yoloworld/tl_yolo_world.cpp
-
     tl_modules/sam3/tl_sam3.h
     tl_modules/sam3/tl_sam3.cpp
 

@@ -68,7 +68,7 @@ public:
     QMap<QString, bool>         flags_;
     QString                     description_;
     cv::Mat                     mask_;
-    QMap<QString, QString>      other_data_{};
+    QMap<QString, QString>      other_data_;
 
 private:
     QList<int32_t>              point_labels_;

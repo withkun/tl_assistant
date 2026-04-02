@@ -26,7 +26,7 @@ TlToolBar::TlToolBar(const QString &title, const std::list<QAction *> &actions, 
     this->setObjectName(title + "ToolBar");
     this->setOrientation(orientation);
     this->setToolButtonStyle(button_style);
-    TlUtils::addActions(this, actions);
+    utils::addActions(this, actions);
 }
 
 void TlToolBar::addAction(QAction *action) {

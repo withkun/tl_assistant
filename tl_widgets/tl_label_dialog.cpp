@@ -38,7 +38,7 @@ LabelDialog::LabelDialog(QWidget *parent,
 
     edit_ = new LabelLineEdit();
     edit_->setPlaceholderText("Enter object label");
-    edit_->setValidator(TlUtils::labelValidator());
+    edit_->setValidator(utils::labelValidator());
     QObject::connect(edit_, &LabelLineEdit::editingFinished, this, &LabelDialog::postProcess);
     if (!flags.isEmpty()) {
         QObject::connect(edit_, &LabelLineEdit::textChanged, this, &LabelDialog::updateFlags);
@@ -220,7 +220,7 @@ int32_t LabelDialog::getGroupId() {
     if (!group_id.isEmpty()) {
         return group_id.toInt();
     }
-    return -1;
+    return None;
 }
 
 std::tuple<QString, QMap<QString, bool>, int32_t, QString> LabelDialog::

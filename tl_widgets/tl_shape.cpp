@@ -216,14 +216,14 @@ void TlShape::paint(QPainter &painter) {
             this->fill_color_.getRgb(&r, &g, &b, &a);
         }
         image_to_draw.setTo(cv::Scalar(r, g, b, a), mask_);
-        auto qimage = QImage::fromData(TlUtils::img_arr_to_data(image_to_draw));
+        auto qimage = QImage::fromData(utils::img_arr_to_data(image_to_draw));
         qimage = qimage.scaled(
             qimage.size() * scale_,
             Qt::IgnoreAspectRatio,
             Qt::SmoothTransformation
         );
 
-        painter.drawImage(scale_point(points_[0]), qimage);
+        painter.drawImage(this->scale_point(this->points_[0]), qimage);
 
         auto line_path = QPainterPath();
         std::vector<std::vector<cv::Point>> contours;
@@ -231,11 +231,11 @@ void TlShape::paint(QPainter &painter) {
         for (auto contour : contours) {
             auto [x, y] = points_[0];
             line_path.moveTo(
-                scale_point(QPointF(contour[0].x+x, contour[0].y+y))
+                this->scale_point(QPointF(contour[0].x+x, contour[0].y+y))
             );
             for (auto idx = 1; idx < contour.size(); ++idx) {
                 line_path.lineTo(
-                    scale_point(QPointF(contour[idx].x+x, contour[idx].y+y))
+                    this->scale_point(QPointF(contour[idx].x+x, contour[idx].y+y))
                 );
             }
         }
@@ -258,47 +258,47 @@ void TlShape::paint(QPainter &painter) {
             }
             if (this->shape_type_ == "rectangle") {
                 for (auto i = 0; i < points_.size(); ++i) {
-                    drawVertex(vrtx_path, i);
+                    this->drawVertex(vrtx_path, i);
                 }
             }
         } else if (this->shape_type_ == "circle") {
             assert(points_.size() == 1 || points_.size() == 2);
             if (points_.size() == 2) {
-                auto raidus = TlUtils::distance(
-                    scale_point(points_[0] - points_[1])
+                auto radius = utils::distance(
+                    this->scale_point(this->points_[0] - this->points_[1])
                 );
                 line_path.addEllipse(
-                    scale_point(points_[0]), raidus, raidus
+                    this->scale_point(this->points_[0]), radius, radius
                 );
             }
             for (auto i = 0; i < points_.size(); ++i) {
-                drawVertex(vrtx_path, i);
+                this->drawVertex(vrtx_path, i);
             }
         } else if (this->shape_type_ == "linestrip") {
-            line_path.moveTo(scale_point(points_[0]));
+            line_path.moveTo(this->scale_point(points_[0]));
             for (auto i = 0; i < points_.size(); ++i) {
-                line_path.lineTo(scale_point(points_[i]));
-                drawVertex(vrtx_path, i);
+                line_path.lineTo(this->scale_point(points_[i]));
+                this->drawVertex(vrtx_path, i);
             }
         } else if (this->shape_type_ == "points") {
             assert(points_.size() == point_labels_.size());
             for (auto i = 0; i < point_labels_.size(); ++i) {
                 if (point_labels_[i] == 1) {
-                    drawVertex(vrtx_path, i);
+                    this->drawVertex(vrtx_path, i);
                 } else {
-                    drawVertex(negative_vrtx_path, i);
+                    this->drawVertex(negative_vrtx_path, i);
                 }
             }
         } else {
-            line_path.moveTo(scale_point(this->points_[0]));
+            line_path.moveTo(this->scale_point(this->points_[0]));
             // Uncommenting the following line will draw 2 paths
             // for the 1st vertex, and make it non-filled, which
             // may be desirable.
-            // this->drawVertex(vrtx_path, 0);
+            // self.drawVertex(vrtx_path, 0)
 
             for (auto i = 0; i < points_.size(); ++i) {
                 line_path.lineTo(scale_point(points_[i]));
-                drawVertex(vrtx_path, i);
+                this->drawVertex(vrtx_path, i);
             }
             if (this->isClosed()) {
                 line_path.lineTo(scale_point(points_[0]));
@@ -353,7 +353,7 @@ int32_t TlShape::nearestVertex(QPointF point, float epsilon) {
     point = QPointF(point.x() * scale_, point.y() * scale_);
     for (auto i = 0; i < points_.size(); ++i) {
         auto p = QPointF(points_[i].x() * scale_, points_[i].y() * scale_);
-        auto dist = TlUtils::distance(p - point);
+        auto dist = utils::distance(p - point);
         if ((dist <= epsilon) && (dist < min_distance)) {
             min_distance = dist;
             min_i = i;
@@ -370,7 +370,7 @@ int32_t TlShape::nearestEdge(QPointF point, float epsilon) {
         auto start = scale_point((i > 0) ? points_[i - 1] : points_[points_.size() - 1]);
         auto end = scale_point(points_[i]);
         auto line = QLineF{start, end};
-        auto dist = TlUtils::distanceToLine(point, line);
+        auto dist = utils::distanceToLine(point, line);
         if (dist <= epsilon && dist < min_distance) {
             min_distance = dist;
             post_i = i;
@@ -386,7 +386,7 @@ bool TlShape::containsPoint(QPointF point) {
     if (this->shape_type_ == "point") {
         if (this->points_.empty())
             return false;
-        return TlUtils::distance(point - this->points_[0]) <= this->point_size / 2;
+        return utils::distance(point - this->points_[0]) <= this->point_size / 2;
     }
     if (!this->mask_.empty()) {
         int32_t raw_y = int(round(point.y() - this->points_[0].y()));
@@ -413,7 +413,7 @@ QPainterPath TlShape::makePath() const {
     } else if (this->shape_type_ == "circle") {
         path = QPainterPath();
         if (points_.size() == 2) {
-            auto radius = TlUtils::distance(points_[0] - points_[1]);
+            auto radius = utils::distance(points_[0] - points_[1]);
             path.addEllipse(points_[0], radius, radius);
         }
     } else {

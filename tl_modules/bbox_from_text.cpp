@@ -1,7 +1,8 @@
 #include "bbox_from_text.h"
+#include "polygon_from_mask.h"
 
 
-
+namespace bbox_from_text {
 void get_bboxes_from_texts(
     const GenerateResponse &response,
     std::vector<float> &scores,
@@ -144,3 +145,30 @@ void get_bboxes_from_texts(
 //        shapes.append(shape)
 //    return shapes
 //}
+
+QList<TlShape> get_shapes_from_texts(
+    SamSession *sam_session,
+    const cv::Mat &image, size_t image_id, const std::vector<std::string> &texts
+) {
+    const GenerateResponse response = sam_session->run(image, image_id, {}, {}, texts);
+    QList<TlShape> shapes;
+    for (const auto &annotation : response.annotations) {
+        shapes.push_back({});
+        auto &shape = shapes.back();
+        shape.label_ = QString::fromStdString(texts[0]);
+        shape.close();
+        if (annotation.mask.empty()) {
+            shape.shape_type_ = "rectangle";
+            shape.points_ = {QPointF(annotation.bbox.x1, annotation.bbox.y1), QPointF(annotation.bbox.x2, annotation.bbox.y2)};
+        } else {
+            shape.shape_type_ = "polygon";
+            const auto x1 = annotation.bbox.x1;
+            const auto y1 = annotation.bbox.y1;
+            auto points = measure::compute_polygon_from_mask(annotation.mask);
+            std::ranges::transform(points, std::back_inserter(shape.points_), [x1, y1](auto &p) { return QPointF(x1+p.x, y1+p.y); });
+        }
+    }
+
+    return shapes;
+}
+} // namespace bbox_from_text

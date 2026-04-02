@@ -209,5 +209,7 @@ private:
 
     void update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const QString &createMode);
     QPointF snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex);
+
+    void update_label(const TlShape &shape);
 };
 #endif // __INC_CANVAS_H
