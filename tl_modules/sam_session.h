@@ -3,7 +3,6 @@
 
 #include "base/model.h"
 
-extern std::vector<cv::Point2i> compute_polygon_from_mask(const cv::Mat &mask);
 using CacheValue = std::pair<int64_t, ImageEmbedding>;
 
 class SamSession {

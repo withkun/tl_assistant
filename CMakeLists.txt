@@ -114,6 +114,8 @@ set(AI_SOURCES
     tl_modules/base/ort_logging.cpp
     tl_modules/base/tokenizer.h
     tl_modules/base/tokenizer.cpp
+    tl_modules/base/ort_utils.h
+    tl_modules/base/ort_utils.cpp
 
     tl_modules/sam1/tl_sam1.h
     tl_modules/sam1/tl_sam1.cpp
@@ -142,14 +144,10 @@ set(AI_SOURCES
     tl_modules/ai_assist_annotation.h
     tl_modules/ai_assist_annotation.cpp
 
-    sk_measure/sk_measure_contour.h
-    sk_measure/sk_measure_contour.cpp
-    sk_measure/sk_contour_segments.cpp
-    sk_measure/sk_approx_polygon.cpp
     tl_modules/bbox_from_text.h
     tl_modules/bbox_from_text.cpp
-    tl_modules/base/ort_utils.h
-    tl_modules/base/ort_utils.cpp
+    tl_modules/polygon_from_mask.h
+    tl_modules/polygon_from_mask.cpp
 )
 
 set(PROJECT_SOURCES
@@ -179,7 +177,6 @@ qt_add_translations(${PROJECT_NAME} TS_FILES
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/sk_measure
     ${CMAKE_CURRENT_SOURCE_DIR}/tl_modules
     ${CMAKE_CURRENT_SOURCE_DIR}/tl_widgets
     ${CUDA_TOOLKIT_ROOT_DIR}/include

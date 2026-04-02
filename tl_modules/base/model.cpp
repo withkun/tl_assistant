@@ -30,7 +30,7 @@ void InferenceSession::RunInference() {
 
         const auto leave_ms = std::chrono::system_clock::now();
         int64_t usage_ms =  std::chrono::duration_cast<std::chrono::microseconds>(leave_ms - enter_ms).count();
-        SPDLOG_INFO("Run success, usage: {}ms", usage_ms);
+        SPDLOG_INFO("Run success, usage: {}μs", usage_ms);
     } catch (const Ort::Exception &e) {
         SPDLOG_INFO("Got Exception: {}", e.what());
     } catch (const std::exception &e) {
@@ -118,7 +118,7 @@ void Model::init() {
         this->sessions_[key] = impl_->load_session(blob);
         const auto leave_ms = std::chrono::system_clock::now();
         int64_t usage_ms =  std::chrono::duration_cast<std::chrono::microseconds>(leave_ms - enter_ms).count();
-        SPDLOG_INFO("Load {} success, usage: {}ms", key, usage_ms);
+        SPDLOG_INFO("Load {} success, usage: {}μs", key, usage_ms);
     }
 }
 

@@ -1,7 +1,11 @@
 #include "sam_session.h"
 #include "sam_apis.h"
 
+#include <future>
 #include <fstream>
+
+#include <QApplication>
+#include <QProgressDialog>
 
 
 SamSession::SamSession(const std::string &name, const int32_t cache_size) : model_name_(name), cache_size_(cache_size) {
@@ -48,8 +52,24 @@ ImageEmbedding SamSession::get_or_compute_embedding(const cv::Mat &image, const 
         return image_embedding;
     }
 
-    auto *model = get_or_load_model();
-    ImageEmbedding image_embedding = model->encode_image(image);
+    QProgressDialog progressDialog("AI解码中, 请稍候...", "Cancel", 0, 0, nullptr, Qt::FramelessWindowHint);
+    progressDialog.setWindowModality(Qt::WindowModal);  // 确保用户无法操作其他窗口
+    progressDialog.setCancelButton(nullptr);    // 隐藏取消按钮
+    progressDialog.setMinimumDuration(100);     // 延迟100ms显示, 避免闪屏
+    progressDialog.show();                      // 启动对话框展示
+    QApplication::processEvents();              // 确保对话框立即渲染
+
+    std::future<ImageEmbedding> future = std::async(std::launch::async, [this, &image]() {
+                                             auto *model = get_or_load_model();
+                                             return model->encode_image(image);
+                                         });
+    while (future.wait_for(std::chrono::milliseconds(20)) != std::future_status::ready) {
+        //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        //progressDialog.update();
+    }
+    ImageEmbedding image_embedding = future.get();
+
+    progressDialog.close();     // 关闭销毁
 
     SPDLOG_INFO("Set computing embedding for cache_key={}", image_id);
     //self._embedding_cache.append((image_id, embedding))
@@ -75,7 +95,6 @@ Model *SamSession::get_or_load_model() {
     if (model_ == nullptr) {
         // self._model = apis.get_model_type_by_name(self._model_name)  ()
         model_ = SamApis::instance().get_model_by_name(model_name_);
-
     }
     return model_;
 }
@@ -112,30 +131,4 @@ void fromFile(const std::string &path, std::vector<float> &blob) {
     const size_t model_size = ifs.tellg();
     ifs.seekg(0, ifs.beg);
     ifs.read(reinterpret_cast<char *>(blob.data()), model_size);
-}
-
-std::vector<cv::Point2i> compute_polygon_from_mask(const cv::Mat &mask) {
-    // 查找轮廓
-    std::vector<std::vector<cv::Point2i>> contours;
-    //std::vector<std::vector<cv::Point2d>> contours;
-    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-    if (contours.empty()) {
-        return {};
-    }
-    //cv::cornerSubPix(mask, con);
-
-    // 寻找最长的轮廓
-    size_t max_length = 0;
-    size_t max_length_index = std::numeric_limits<size_t>::max();
-    for (size_t i = 0; i < contours.size(); ++i) {
-        size_t length = contours[i].size();
-        if (length > max_length) {
-            max_length = length;
-            max_length_index = i;
-        }
-    }
-
-    //drop last point that is duplicate of first point
-    contours[max_length_index].pop_back();
-    return contours[max_length_index];
 }

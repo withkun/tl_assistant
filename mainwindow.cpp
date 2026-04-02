@@ -32,6 +32,7 @@
 #include "tl_widgets/status_stats.h"
 #include "tl_modules/sam_apis.h"
 #include "tl_modules/bbox_from_text.h"
+#include "tl_modules/polygon_from_mask.h"
 
 
 std::vector<QColor> label_colormap() {
@@ -987,7 +988,7 @@ void MainWindow::submit_ai_prompt() {
             shape.shape_type_ = "polygon";
             const auto x1 = annotation.bbox.x1;
             const auto y1 = annotation.bbox.y1;
-            auto points = compute_polygon_from_mask(annotation.mask);
+            auto points = measure::compute_polygon_from_mask(annotation.mask);
             std::ranges::transform(points, std::back_inserter(shape.points_), [x1, y1](auto &p) { return QPointF(x1+p.x, y1+p.y); });
         }
     }

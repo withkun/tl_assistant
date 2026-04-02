@@ -1,7 +1,9 @@
 ﻿#include "tl_canvas.h"
+
 #include "base/format_qt.h"
-#include "np_utils.h"
 #include "config/app_config.h"
+#include "tl_widgets/np_utils.h"
+#include "tl_modules/polygon_from_mask.h"
 
 #include <QWheelEvent>
 #include <QApplication>
@@ -1367,7 +1369,7 @@ void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlS
             response.annotations[0].mask(cv::Rect(x1, y1, x2-x1, y2-y1)).clone()
         );
     } else if (createMode == "ai_polygon") {
-        auto points = compute_polygon_from_mask(
+        auto points = measure::compute_polygon_from_mask(
             response.annotations[0].mask
         );
         if (points.size() < 2) {

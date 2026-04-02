@@ -1,9 +1,9 @@
 ﻿#ifndef __INC_CANVAS_H
 #define __INC_CANVAS_H
 
-#include <QWidget>
 #include <QMenu>
-#include <qpainter.h>
+#include <QWidget>
+#include <QPainter>
 
 #include "tl_shape.h"
 #include "tl_modules/sam_session.h"
