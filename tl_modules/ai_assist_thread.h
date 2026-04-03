@@ -1,8 +1,7 @@
-#ifndef __INC_AI_WORK_THREAD_H
-#define __INC_AI_WORK_THREAD_H
+#ifndef __INC_AI_ASSIST_THREAD_H
+#define __INC_AI_ASSIST_THREAD_H
 
 #include <QThread>
-
 
 class Canvas;
 class AiAssistThread : public QThread {
@@ -30,4 +29,4 @@ private:
     std::condition_variable     cv_;
     std::mutex                  mutex_;
 };
-#endif //__INC_AI_WORK_THREAD_H
+#endif //__INC_AI_ASSIST_THREAD_H

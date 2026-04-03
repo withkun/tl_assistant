@@ -64,5 +64,4 @@ public:
     ImageEmbedding                  image_embedding;        //: Optional[ImageEmbedding] = pydantic.Field(default=None)
     std::vector<Annotation>         annotations;            //: list[Annotation]
 };
-
-#endif // __INC_TYPES_H
+#endif //__INC_TYPES_H

@@ -2,6 +2,7 @@
 #include "sam_apis.h"
 #include <fstream>
 
+
 AUTO_REGISTER_MODEL(Sam100m, "sam:100m");
 AUTO_REGISTER_MODEL(Sam300m, "sam:300m");
 AUTO_REGISTER_MODEL(Sam600m, "sam:latest");

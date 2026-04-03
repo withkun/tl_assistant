@@ -10,7 +10,6 @@
 #include <QVBoxLayout>
 #include <QTextEdit>
 
-
 class LabelLineEdit : public QLineEdit {
     Q_OBJECT
 public:
@@ -59,4 +58,4 @@ public:
     std::tuple<QString, QMap<QString, bool>, int32_t, QString>
     popUp(QString text="", QMap<QString, bool> flags={}, int32_t group_id=None, QString description="", bool flags_disabled=false, bool move=true);
 };
-#endif // __INC_LABEL_DIALOG_H
+#endif //__INC_LABEL_DIALOG_H

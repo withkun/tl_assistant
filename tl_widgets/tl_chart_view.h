@@ -1,15 +1,11 @@
-//
-// Created by njtl007 on 2024/10/23.
-//
-
-#ifndef YOLOCHART_TL_UTILS_TL_CHART_VIEW_H_
-#define YOLOCHART_TL_UTILS_TL_CHART_VIEW_H_
+#ifndef __INC_CHART_VIEW_H
+#define __INC_CHART_VIEW_H
 
 #include <QtCharts>
 
 class TlChartView : public QChartView {
     Q_OBJECT
-  public:
+public:
     TlChartView(QChart *chart, QWidget *parent = nullptr);
 
     void mouseMoveEvent(QMouseEvent *event) override;
@@ -18,11 +14,10 @@ class TlChartView : public QChartView {
 
     void mousePressEvent(QMouseEvent *event) override;
 
-  signals:
+signals:
     void sgl_recoverRange(QChartView *);
 
-  private:
+private:
     bool is_Pressed_{true};
 };
-
-#endif // YOLOCHART_TL_UTILS_TL_CHART_VIEW_H_
+#endif //__INC_CHART_VIEW_H

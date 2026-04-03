@@ -6,7 +6,11 @@
 
 #include "base/format_cv.h"
 #include "base/format_qt.h"
+#include "onnxruntime_cxx_api.h"
 
+extern void toFile(const std::string &name, const Ort::Value &tensor);
+extern void fromFile(const std::string &path, const cv::Mat &blob);
+extern void fromFile(const std::string &path, std::vector<float> &blob);
 
 inline constexpr int32_t None = std::numeric_limits<int32_t>::min();
 
@@ -54,6 +58,7 @@ class utils {
     static QPixmap MatToPixmap(const cv::Mat &mat);
 
     static cv::Rect masks_to_bboxes(const cv::Mat &mask);
+    static std::vector<cv::Rect> masks_to_bboxes1(const std::vector<cv::Mat> &masks);
 
     static cv::Mat img_data_to_arr(const QByteArray &img_data);
     static QByteArray img_arr_to_data(const cv::Mat &img_data);

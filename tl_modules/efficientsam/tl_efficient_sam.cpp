@@ -1,6 +1,7 @@
 #include "tl_efficient_sam.h"
 #include "sam_apis.h"
 
+
 AUTO_REGISTER_MODEL(EfficientSam10m, "efficientsam:10m");
 AUTO_REGISTER_MODEL(EfficientSam30m, "efficientsam:latest");
 

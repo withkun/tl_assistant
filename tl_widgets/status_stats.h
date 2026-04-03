@@ -8,4 +8,4 @@ class StatusStats : public QLabel {
 public:
     explicit StatusStats(QWidget *parent = nullptr);
 };
-#endif // __INC_STATUS_STATS_H
+#endif //__INC_STATUS_STATS_H

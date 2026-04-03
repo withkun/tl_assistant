@@ -1,21 +1,15 @@
-//
-// Created by njtl007 on 2024/10/11.
-//
-
-#ifndef TL_ASSISTANT_TL_UTILS_TL_FILE_DIALOG_H_
-#define TL_ASSISTANT_TL_UTILS_TL_FILE_DIALOG_H_
+#ifndef __INC_FILE_DIALOG_H
+#define __INC_FILE_DIALOG_H
 
 #include <QFileDialog>
 #include <QScrollArea>
 
 class ScrollAreaPreview : public QScrollArea {
-
 };
 
 class FileDialogPreview : public QFileDialog {
-  public:
+public:
     FileDialogPreview(QWidget *parent);
-    
-};
 
-#endif// TL_ASSISTANT_TL_UTILS_TL_FILE_DIALOG_H_
+};
+#endif //__INC_FILE_DIALOG_H

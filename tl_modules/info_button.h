@@ -1,8 +1,7 @@
-#ifndef INFO_BUTTON_H
-#define INFO_BUTTON_H
+#ifndef __INC_INFO_BUTTON_H
+#define __INC_INFO_BUTTON_H
 
 #include <QToolButton>
-
 
 class InfoButton : public QToolButton {
     Q_OBJECT
@@ -14,4 +13,4 @@ public:
 
 private:
 };
-#endif // INFO_BUTTON_H
+#endif //__INC_INFO_BUTTON_H

@@ -10,4 +10,4 @@ public:
 
     QSize minimumSizeHint() const override;
 };
-#endif // __INC_ZOOM_WIDGET_H
+#endif //__INC_ZOOM_WIDGET_H

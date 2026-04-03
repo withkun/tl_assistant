@@ -34,4 +34,4 @@ public:
         };
     }
 };
-#endif // __INC_SAM3_H
+#endif //__INC_SAM3_H

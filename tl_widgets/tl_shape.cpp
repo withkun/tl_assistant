@@ -1,10 +1,9 @@
 #include "tl_shape.h"
+
 #include "base64.h"
 #include "np_utils.h"
 #include "spdlog/spdlog.h"
 #include "base/format_qt.h"
-
-#include <set>
 
 #include <QPainter>
 #include <QPainterPath>

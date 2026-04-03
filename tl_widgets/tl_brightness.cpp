@@ -3,6 +3,7 @@
 #include <QLabel>
 #include <QHBoxLayout>
 
+
 int32_t BrightnessContrast::base_value_ = 50;
 
 BrightnessContrast::BrightnessContrast(const QImage &img, std::function<void()> callback, QWidget *parent) : QDialog(parent) {

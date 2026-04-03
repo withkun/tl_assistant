@@ -1,7 +1,6 @@
 #include "tl_utils.h"
 
 #include "base64.h"
-#include "onnxruntime_cxx_api.h"
 #include <fstream>
 
 #include <QMenu>
@@ -289,18 +288,43 @@ cv::Rect utils::masks_to_bboxes(const cv::Mat &mask) {
     }
 
     // 寻找最长的轮廓
-    size_t max_length = 0;
-    size_t max_length_index = std::numeric_limits<size_t>::max();
-    for (size_t i = 0; i < contours.size(); ++i) {
-        size_t length = contours[i].size();
-        if (length > max_length) {
-            max_length = length;
-            max_length_index = i;
-        }
-    }
+    const size_t max_len_idx = std::distance(contours.begin(), std::ranges::max_element(contours, [](auto &a, auto &b) { return a.size() < b.size(); }));
 
     //drop last point that is duplicate of first point
-    return cv::boundingRect(contours[max_length_index]);
+    return cv::boundingRect(contours[max_len_idx]);
+}
+
+std::vector<cv::Rect> utils::masks_to_bboxes1(const std::vector<cv::Mat> &masks) {
+    std::vector<cv::Rect> bboxes;
+    bboxes.reserve(masks.size());
+
+    for (const cv::Mat &mask : masks) {
+        if (mask.empty() || cv::countNonZero(mask) == 0) {
+            bboxes.emplace_back(0, 0, 0, 0); // 空掩膜返回零矩形
+            continue;
+        }
+
+        cv::Mat points;
+        cv::findNonZero(mask, points); // 获取非零像素坐标
+
+        int32_t xmin = points.at<cv::Point>(0).x;
+        int32_t xmax = xmin;
+        int32_t ymin = points.at<cv::Point>(0).y;
+        int32_t ymax = ymin;
+        for (int32_t i = 1; i < points.rows; ++i) {
+            cv::Point p = points.at<cv::Point>(i);
+            xmin = std::min(xmin, p.x);
+            xmax = std::max(xmax, p.x);
+            ymin = std::min(ymin, p.y);
+            ymax = std::max(ymax, p.y);
+        }
+
+        // 构造包含边界的矩形
+        int32_t width  = xmax - xmin + 1;
+        int32_t height = ymax - ymin + 1;
+        bboxes.emplace_back(xmin, ymin, width, height);
+    }
+    return bboxes;
 }
 
 cv::Mat utils::img_data_to_arr(const QByteArray &img_data) {

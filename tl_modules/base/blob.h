@@ -1,5 +1,5 @@
-#ifndef __INC_AI_BLOB_H
-#define __INC_AI_BLOB_H
+#ifndef __INC_BLOB_H
+#define __INC_BLOB_H
 
 #include <string>
 
@@ -15,5 +15,4 @@ public:
     std::string url_;
     std::string hash_;
 };
-
-#endif// __INC_AI_BLOB_H
+#endif //__INC_BLOB_H

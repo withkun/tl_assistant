@@ -1,21 +1,15 @@
-//
-// Created by njtl007 on 2024/10/25.
-//
-
-#ifndef CHARTYOLO_TL_UTILS_TL_FILE_WATCHER_H_
-#define CHARTYOLO_TL_UTILS_TL_FILE_WATCHER_H_
+#ifndef __INC_FILE_WATCHER_H
+#define __INC_FILE_WATCHER_H
 
 #include <QFileSystemWatcher>
 
 class TlFileWatcher : public QFileSystemWatcher {
     Q_OBJECT
-  public:
+public:
     TlFileWatcher(const QString &path, QObject *parent = nullptr);
     ~TlFileWatcher() override;
 
-  private slots:
+private slots:
     void slotFileChanged(const QString &path);
 };
-
-
-#endif // CHARTYOLO_TL_UTILS_TL_FILE_WATCHER_H_
+#endif //__INC_FILE_WATCHER_H

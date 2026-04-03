@@ -7,10 +7,8 @@
 #include <QStyleOptionViewItem>
 #include <QTextDocument>
 #include <QPainter>
-#include <QStringListModel>
 
 #include "tl_shape.h"
-
 
 class HTMLDelegate: public QStyledItemDelegate {
 public:
@@ -87,4 +85,4 @@ public:
 
     bool empty() const;
 };
-#endif // __INC_SHAPE_LIST_H
+#endif //__INC_SHAPE_LIST_H

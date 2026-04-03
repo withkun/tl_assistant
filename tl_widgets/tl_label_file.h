@@ -2,9 +2,7 @@
 #define __INC_LABEL_FILE_H
 
 #include <QObject>
-
 #include "tl_shape.h"
-
 
 class ShapeDict {
 public:
@@ -57,4 +55,4 @@ public:
     QByteArray      imageData_;
     QByteArray      otherData_;
 };
-#endif // __INC_LABEL_FILE_H
+#endif //__INC_LABEL_FILE_H

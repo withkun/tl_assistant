@@ -2,6 +2,7 @@
 #include "sam_apis.h"
 #include "base/tokenizer.h"
 
+
 AUTO_REGISTER_MODEL(Sam3, "sam3:latest");
 
 ImageEmbedding Sam3::encode_image(const cv::Mat &image) {

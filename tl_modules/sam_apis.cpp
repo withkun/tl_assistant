@@ -1,6 +1,5 @@
 #include "sam_apis.h"
 
-#include "spdlog/spdlog.h"
 
 SamApis &SamApis::instance() {
     static SamApis sam_apis;

@@ -50,9 +50,10 @@ Canvas::Canvas(float epsilon,
     //def __init__(self, *args, **kwargs):
     this->epsilon_                  = epsilon;
     this->double_click_             = double_click;
-    if (!this->double_click_.isEmpty() && this->double_click_ != "close") {
-        throw std::invalid_argument("Unexpected value for double_click event: " + double_click.toStdString());
-    }
+    if (!QKey{"", "close"}.contains(this->double_click_))
+        throw std::invalid_argument(
+            "Unexpected value for double_click event: " + double_click.toStdString()
+        );
     this->num_backups_              = num_backups;
     this->crosshair_                = crosshair.size() == 8 ?
         crosshair :

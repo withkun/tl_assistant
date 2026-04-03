@@ -6,7 +6,6 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 
-
 class AiPromptAnnotation : public QWidget {
     Q_OBJECT
 public:
@@ -31,4 +30,4 @@ private:
     QDoubleSpinBox         *score_spinbox_;
     QDoubleSpinBox         *iou_spinbox_;
 };
-#endif // __INC_AI_PROMPT_ANNOTATION_H
+#endif //__INC_AI_PROMPT_ANNOTATION_H

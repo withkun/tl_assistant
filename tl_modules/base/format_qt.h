@@ -65,5 +65,5 @@ struct formatter<QColor> : formatter<string_view> {
         return formatter<string_view>::format(ss.str(), ctx);
     }
 };
-}
+} //namespace std
 #endif //__INC_FORMAT_QT_H

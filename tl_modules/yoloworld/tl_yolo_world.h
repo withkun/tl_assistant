@@ -42,4 +42,4 @@ private:
     cv::Mat transform_image(const cv::Mat &image, int32_t input_size, int32_t &offset_y, int32_t &offset_x);
     cv::Mat transform_boxes(const cv::Mat &boxes, int32_t input_size, int32_t image_h, int32_t image_w, int32_t offset_y, int32_t offset_x);
 };
-#endif // __INC_YOLO_WORLD_H
+#endif //__INC_YOLO_WORLD_H

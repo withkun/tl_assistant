@@ -1,5 +1,5 @@
-#ifndef __INC_ORT_LOGING_H
-#define __INC_ORT_LOGING_H
+#ifndef __INC_ORT_LOGGING_H
+#define __INC_ORT_LOGGING_H
 
 #include "spdlog/spdlog.h"
 #include "onnxruntime_cxx_api.h"
@@ -38,7 +38,7 @@ struct formatter<ONNXTensorElementDataType> : formatter<string_view> {
         return formatter<string_view>::format(name, ctx);
     }
 };
-}
+} //namespace std
 
 //OrtLoggingFunction
 //void* param: 用户自定义数据的指针, 可以用来传递上下文信息或配置选项给日志处理函数
@@ -49,4 +49,4 @@ struct formatter<ONNXTensorElementDataType> : formatter<string_view> {
 //const char* message: 实际的日志消息字符串, 包含了要记录的详细信息
 void LoggingFunction(void *param, OrtLoggingLevel severity, const char *category, const char *logid, const char *code_location, const char *message);
 
-#endif// __INC_ORT_LOGING_H
+#endif //__INC_ORT_LOGGING_H

@@ -41,37 +41,3 @@ GenerateResponse SamBase::generate(GenerateRequest &request) {
     //};
     return {};
 }
-
-std::vector<cv::Rect> masks_to_bboxes(const std::vector<cv::Mat>& masks) {
-    std::vector<cv::Rect> bboxes;
-    bboxes.reserve(masks.size());
-
-    for (const cv::Mat& mask : masks) {
-        if (mask.empty() || cv::countNonZero(mask) == 0) {
-            bboxes.emplace_back(0, 0, 0, 0); // 空掩膜返回零矩形
-            continue;
-        }
-
-        cv::Mat points;
-        cv::findNonZero(mask, points); // 获取非零像素坐标
-
-        int xmin = points.at<cv::Point>(0).x;
-        int xmax = xmin;
-        int ymin = points.at<cv::Point>(0).y;
-        int ymax = ymin;
-
-        for (int i = 1; i < points.rows; ++i) {
-            cv::Point p = points.at<cv::Point>(i);
-            xmin = std::min(xmin, p.x);
-            xmax = std::max(xmax, p.x);
-            ymin = std::min(ymin, p.y);
-            ymax = std::max(ymax, p.y);
-        }
-
-        // 构造包含边界的矩形
-        int width = xmax - xmin + 1;
-        int height = ymax - ymin + 1;
-        bboxes.emplace_back(xmin, ymin, width, height);
-    }
-    return bboxes;
-}

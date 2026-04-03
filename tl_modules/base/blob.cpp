@@ -4,8 +4,8 @@
 #include <filesystem>
 #include "spdlog/spdlog.h"
 
-using fs = std::filesystem::path;
 
+using fs = std::filesystem::path;
 
 Blob::Blob(const std::string &url, const std::string &hash) {
     url_ = url;

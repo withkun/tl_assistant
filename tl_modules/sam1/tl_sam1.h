@@ -81,4 +81,4 @@ public:
         };
     }
 };
-#endif // __INC_SAM1_H
+#endif //__INC_SAM1_H

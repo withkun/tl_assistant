@@ -9,4 +9,4 @@ public:
 
     GenerateResponse generate(GenerateRequest &request) override;
 };
-#endif // __INC_SAM_BASE_H
+#endif //__INC_SAM_BASE_H

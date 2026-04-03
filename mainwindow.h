@@ -23,7 +23,6 @@
 #include "tl_modules/ai_prompt_annotation.h"
 #include "yaml-cpp/yaml.h"
 
-
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -47,7 +46,6 @@ public:
                const QString &output_dir);
     ~MainWindow() override;
 
-
 private slots:
     void slotTaskSubmit();
     void slotTaskFinish();
@@ -60,7 +58,6 @@ private slots:
     void slotFinishedProcess(int32_t exitCode, QProcess::ExitStatus exitStatus);
     void slotProcessExited(int32_t exitCode, QProcess::ExitStatus exitStatus);
     void slotError(QProcess::ProcessError);
-
 
 private:
     Ui::MainWindow                                 *ui_{nullptr};
@@ -305,4 +302,4 @@ private:
     QAction                *edit_{nullptr};
     QAction                *fill_drawing_{nullptr};
 };
-#endif // __INC_MAINWINDOW_H
+#endif //__INC_MAINWINDOW_H

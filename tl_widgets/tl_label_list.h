@@ -19,4 +19,4 @@ public:
     QListWidgetItem *find_label_item(const QString &label);
     void add_label_item(const QString &label, const std::vector<int32_t> &color);
 };
-#endif // __INC_LABEL_LIST_H
+#endif //__INC_LABEL_LIST_H

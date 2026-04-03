@@ -7,10 +7,6 @@
 
 #include "base/model.h"
 
-extern void toFile(const std::string &name, const Ort::Value &tensor);
-extern void fromFile(const std::string &path, const cv::Mat &blob);
-extern void fromFile(const std::string &path, std::vector<float> &blob);
-
 class SamApis {
 public:
     using FactoryFunc = std::function<std::shared_ptr<Model>()>;
@@ -40,4 +36,4 @@ struct AutoRegister##ModelClass {                                       \
 };                                                                      \
 AutoRegister##ModelClass auto_register_##ModelClass;                    \
 }
-#endif // __INC_SAM_APIS_H
+#endif //__INC_SAM_APIS_H

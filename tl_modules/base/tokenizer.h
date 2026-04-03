@@ -6,9 +6,6 @@
 #include <vector>
 #include <unordered_map>
 
-// https://github.com/openai/CLIP/blob/main/clip/clip.py
-// https://github.com/openai/CLIP/blob/main/clip/simple_tokenizer.py
-
 template <class T>
 void Comb(size_t &seed, const T &v) {
     std::hash<T> hasher;
@@ -27,6 +24,8 @@ struct Hash {
 
 using SPair = std::pair<std::string, std::string>;
 
+// https://github.com/openai/CLIP/blob/main/clip/clip.py
+// https://github.com/openai/CLIP/blob/main/clip/simple_tokenizer.py
 class SimpleTokenizer {
 public:
     explicit SimpleTokenizer(const std::string &bpe_file = "bpe_simple_vocab_16e6.txt.gz");
@@ -53,4 +52,4 @@ public:
 
 std::vector<std::vector<int64_t>> tokenize(const std::vector<std::string> &texts, size_t context_length = 77, bool truncate = false);
 
-#endif // __INC_TOKENIZER_H
+#endif //__INC_TOKENIZER_H

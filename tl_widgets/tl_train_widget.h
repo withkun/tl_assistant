@@ -1,5 +1,5 @@
-#ifndef TL_TRAIN_WIDGET_H
-#define TL_TRAIN_WIDGET_H
+#ifndef __INC_TRAIN_WIDGET_H
+#define __INC_TRAIN_WIDGET_H
 
 #include <QWidget>
 
@@ -9,17 +9,15 @@ class TlTrainWidget;
 
 class TlTrainWidget : public QWidget {
     Q_OBJECT
-
-  public:
+public:
     explicit TlTrainWidget(QWidget *parent = nullptr);
-    ~TlTrainWidget();
+    ~TlTrainWidget() override;
 
-  private slots:
+private slots:
     void on_pushButton1_clicked();
     void on_pushButton2_clicked();
 
-  private:
-    Ui::TlTrainWidget *ui;
+private:
+    Ui::TlTrainWidget *ui_;
 };
-
-#endif// TL_TRAIN_WIDGET_H
+#endif //__INC_TRAIN_WIDGET_H

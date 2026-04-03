@@ -9,7 +9,6 @@
 #include <QColor>
 #include <QMap>
 
-
 class TlShape : public QObject {
 public:
     TlShape(const QString &label="",
@@ -131,4 +130,4 @@ public:
     bool operator<(const TlShape &shape) const;
     explicit operator bool() const;
 };
-#endif // __INC_SHAPE_H
+#endif //__INC_SHAPE_H

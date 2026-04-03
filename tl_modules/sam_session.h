@@ -3,7 +3,6 @@
 
 #include "base/model.h"
 
-
 using EmbeddingCache = std::deque<std::pair<size_t, ImageEmbedding>>;
 
 class SamSession {
@@ -30,4 +29,4 @@ private:
     EmbeddingCache              embedding_cache_;
     void CloneOrtValue(Ort::Value &tensor, Ort::Value &value) const;
 };
-#endif // __INC_SAM_SESSION_H
+#endif //__INC_SAM_SESSION_H

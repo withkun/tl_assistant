@@ -9,7 +9,6 @@
 #include "tl_modules/sam_session.h"
 #include "tl_modules/ai_assist_thread.h"
 
-
 // 信号与槽和设计模式中的观察者模式很类似
 // emit
 // signals

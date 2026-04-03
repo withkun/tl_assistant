@@ -183,4 +183,4 @@ QList<TlShape> get_shapes_from_texts(
 
     return shapes;
 }
-} // namespace bbox_from_text
+} //namespace bbox_from_text

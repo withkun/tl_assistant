@@ -18,4 +18,4 @@ public:
     QSlider        *slider_brightness_;
     QSlider        *slider_contrast_;
 };
-#endif // __INC_BRIGHTNESS_CONTRAST_H
+#endif //__INC_BRIGHTNESS_CONTRAST_H

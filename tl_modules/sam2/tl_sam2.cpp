@@ -1,6 +1,7 @@
 #include "tl_sam2.h"
 #include "sam_apis.h"
 
+
 AUTO_REGISTER_MODEL(Sam2Tiny, "sam2:tiny");
 AUTO_REGISTER_MODEL(Sam2Small, "sam2:small");
 AUTO_REGISTER_MODEL(Sam2BasePlus, "sam2:latest");

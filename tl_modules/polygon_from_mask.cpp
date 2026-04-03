@@ -108,4 +108,4 @@ std::vector<cv::Point2d> compute_polygon_from_mask(const cv::Mat &mask) {
 
     return polygon;
 }
-} // namespace measure
+} //namespace measure
