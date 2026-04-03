@@ -21,7 +21,6 @@
 #include <QDirIterator>
 #include <QTimer>
 #include <QApplication>
-#include <QCoreApplication>
 
 #include "config/app_config.h"
 #include "config/tl_yaml_config.h"
@@ -312,6 +311,8 @@ void MainWindow::setup_actions() {
     fit_window_->setChecked(true);
 
     QObject::connect(canvas_, &Canvas::vertexSelected, [this](bool value){ remove_point_->setEnabled(value); });
+    QObject::connect(canvas_, &Canvas::aiAssistSubmit, this, &MainWindow::slotTaskSubmit);
+    QObject::connect(canvas_, &Canvas::aiAssistFinish, this, &MainWindow::slotTaskFinish);
 
     draw_actions_ = {
         {"polygon",     create_mode_},
@@ -968,9 +969,11 @@ void MainWindow::submit_ai_prompt() {
     //    shape_type=shape_type,
     //);
 
+    this->slotTaskSubmit();
     const auto image = utils::ImageToMat(image_);
     const auto image_id = std::hash<QString>{}(filename_);
     QList<TlShape> shapes = bbox_from_text::get_shapes_from_texts(text_osam_session_.get(), image, image_id, texts);
+    this->slotTaskFinish();
 
     this->canvas_->storeShapes();
     this->load_shapes(shapes, false);
@@ -1189,7 +1192,7 @@ void MainWindow::edit_label(bool value) {
             item->setText(QString("%1 (%2)").arg(shape.label_).arg(shape.group_id_));
         }
         item->setShape(shape);  // 由于保存的是对象, 需要更新到回去.
-        canvas_->update_label(shape);
+        canvas_->update_shape_info(shape);
         this->setDirty();
         if (this->label_list_->find_label_item(shape.label_) == nullptr)
             this->label_list_->add_label_item(
@@ -2421,6 +2424,24 @@ MainWindow::~MainWindow() {
     delete ui_;
     SamApis::instance().unregister_all("");
     AppConfig::instance().save();
+}
+
+void MainWindow::slotTaskSubmit() {
+    // 非GUI线程创建和操作QProgressDialog违反QT的GUI线程规则.
+    // 所有GUI操作(包括QWidget及其子类的创建, 显示, 更新)必须在主线程执行.
+    progress_dialog_ = new QProgressDialog("AI解码中, 请稍候...", "Cancel", 0, 0, this, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    progress_dialog_->setWindowModality(Qt::WindowModal);  // 确保用户无法操作其他窗口
+    progress_dialog_->setCancelButton(nullptr);    // 隐藏取消按钮
+    progress_dialog_->setMinimumDuration(100);     // 延迟100ms显示, 避免闪屏
+    progress_dialog_->show();                      // 启动对话框展示
+}
+
+void MainWindow::slotTaskFinish() {
+    if (progress_dialog_ != nullptr) {
+        progress_dialog_->close();     // 关闭销毁
+        delete progress_dialog_;
+        progress_dialog_ = nullptr;
+    }
 }
 
 void MainWindow::slotActionSetup() {

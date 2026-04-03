@@ -43,6 +43,7 @@ Canvas::Canvas(float epsilon,
     this->is_dragging_              = false;
     this->is_dragging_enabled_      = false;
 
+    this->ai_assist_thread_         = std::unique_ptr<AiAssistThread>(new AiAssistThread(this));
     this->sam_session_model_name_   = AppConfig::instance().ai_assist_name_;
     this->sam_session_              = nullptr;
 
@@ -141,7 +142,18 @@ SamSession &Canvas::get_osam_session() {
     return *this->sam_session_;
 }
 
-void Canvas::update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels, TlShape &shape) {
+// AI辅助需要加载模型与图像编码耗时较长, 需要防止GUI界面假死, 这里进行异步处理拆分.
+void Canvas::submit_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels) {
+    if (ai_assist_points_ == points) {
+        return;
+    }
+    if (ai_assist_thread_->Submit(points, labels)) {
+        ai_assist_points_ = points;
+    }
+}
+
+void Canvas::update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels) {
+    emit aiAssistSubmit();
     std::vector<cv::Point2f> point_coords;
     point_coords.reserve(points.size());
     std::ranges::transform(points, std::back_inserter(point_coords), [](const auto &v) { return cv::Point2f(v.x(), v.y()); });
@@ -157,11 +169,17 @@ void Canvas::update_shape_with_ai(const QList<QPointF> &points, const QList<int3
         point_coords,
         point_labels
     );
-    update_shape_with_ai_response(
-        response,
-        shape,
-        createMode_
-    );
+
+    {
+        std::lock_guard<std::mutex> lock{mutex_};
+        ai_assist_shape_ = current_.copy();
+        update_shape_with_ai_response(
+            response,
+            ai_assist_shape_,
+            createMode_);
+    }
+    emit aiAssistFinish();
+    this->update();
 }
 
 void Canvas::storeShapes() {
@@ -1007,14 +1025,21 @@ void Canvas::paintEvent(QPaintEvent *event) {
             line_.points_[1],
             line_.point_labels_[1]
         );
-        update_shape_with_ai(
+        submit_shape_with_ai(
             drawing_shape.points_,
-            drawing_shape.point_labels_,
-            drawing_shape);
+            drawing_shape.point_labels_
+        );
     }
     drawing_shape.fill_ = fillDrawing();
     drawing_shape.selected_ = fillDrawing();
     drawing_shape.paint(p);
+
+    {
+        std::lock_guard<std::mutex> lock{mutex_};
+        ai_assist_shape_.fill_ = fillDrawing();
+        ai_assist_shape_.selected_ = fillDrawing();
+        ai_assist_shape_.paint(p);
+    }
     p.end();
 }
 
@@ -1046,11 +1071,10 @@ bool Canvas::outOfPixmap(const QPointF &p) {
 void Canvas::finalise() {
     assert(current_);
     if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
-        update_shape_with_ai(
-            current_.points_,
-            current_.point_labels_,
-            current_
-        );
+        std::lock_guard<std::mutex> lock{mutex_};
+        current_ = ai_assist_shape_;
+        ai_assist_points_.clear();
+        ai_assist_shape_.clear();
     }
     current_.close();
 
@@ -1321,13 +1345,15 @@ void Canvas::restoreCursor() {
 void Canvas::resetState() {
     this->restoreCursor();
     this->pixmap_ = QPixmap();
-    this->pixmap_hash_ = None;
+    this->pixmap_hash_ = 0;
     this->shapes_.clear();
     this->shapesBackups_.clear();
     this->movingShape_ = false;
     this->selectedShapes_.clear();
     this->selectedShapesCopy_.clear();
     this->current_.clear();
+    this->ai_assist_points_.clear();
+    this->ai_assist_shape_.clear();
     this->hShape_ = None;
     this->lasthShape_ = None;
     this->hVertex_ = None;
@@ -1399,7 +1425,7 @@ QPointF Canvas::snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex)
     );
 }
 
-void Canvas::update_label(const TlShape &shape) {
+void Canvas::update_shape_info(const TlShape &shape) {
     for (auto &s : shapes_) {
         if (s == shape) {
             s.label_       = shape.label_;

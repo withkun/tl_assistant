@@ -112,8 +112,6 @@ set(AI_SOURCES
     tl_modules/base/ort_logging.cpp
     tl_modules/base/format_cv.h
     tl_modules/base/format_qt.h
-    tl_modules/base/ort_utils.h
-    tl_modules/base/ort_utils.cpp
 
     tl_modules/sam1/tl_sam1.h
     tl_modules/sam1/tl_sam1.cpp
@@ -140,7 +138,8 @@ set(AI_SOURCES
     tl_modules/ai_prompt_annotation.cpp
     tl_modules/ai_assist_annotation.h
     tl_modules/ai_assist_annotation.cpp
-
+    tl_modules/ai_assist_thread.h
+    tl_modules/ai_assist_thread.cpp
     tl_modules/bbox_from_text.h
     tl_modules/bbox_from_text.cpp
     tl_modules/polygon_from_mask.h

@@ -7,6 +7,8 @@
 
 #include "tl_shape.h"
 #include "tl_modules/sam_session.h"
+#include "tl_modules/ai_assist_thread.h"
+
 
 // 信号与槽和设计模式中的观察者模式很类似
 // emit
@@ -85,62 +87,67 @@ signals:
     void vertexSelected(bool value);
     void mouseMoved(QPointF pos);
     void statusUpdated(const QString &str);
+    void aiAssistSubmit();
+    void aiAssistFinish();
 
 private:
     friend class MainWindow;
-    QString                     createMode_;
-    bool                        fill_drawing_;
+    QString                             createMode_;
+    bool                                fill_drawing_;
 
-    float                       epsilon_{10.0};
-    QString                     double_click_;
-    int32_t                     num_backups_;
-    QMap<QString, bool>         crosshair_;
+    float                               epsilon_{10.0};
+    QString                             double_click_;
+    int32_t                             num_backups_;
+    QMap<QString, bool>                 crosshair_;
 
-    CanvasMode                  mode_;
+    CanvasMode                          mode_;
 
-    std::string                 sam_session_model_name_{"sam2:latest"};
-    std::unique_ptr<SamSession> sam_session_{nullptr};
+    std::string                         sam_session_model_name_{"sam2:latest"};
+    std::unique_ptr<SamSession>         sam_session_{nullptr};
 
-    QList<TlShape>              shapes_;
-    QList<QList<TlShape>>       shapesBackups_;    //多次复制记录.
-    TlShape                     current_;
-    QList<int32_t>              selectedShapes_;
-    QList<TlShape>              selectedShapesCopy_;
-    TlShape                     line_;
+    friend class AiAssistThread;
+    std::mutex                          mutex_;  // lock for AI shape.
+    std::unique_ptr<AiAssistThread>     ai_assist_thread_;
+    QList<QPointF>                      ai_assist_points_;
+    TlShape                             ai_assist_shape_;
 
-    QPointF                     prevPoint_;
-    QPointF                     prevMovePoint_;
-    QList<QPointF>              offsets_;
+    QList<TlShape>                      shapes_;
+    QList<QList<TlShape>>               shapesBackups_;    //多次复制记录.
+    TlShape                             current_;
+    QList<int32_t>                      selectedShapes_;
+    QList<TlShape>                      selectedShapesCopy_;
+    TlShape                             line_;
 
-    float                       scale_{1.0};
-    QPixmap                     pixmap_;
-    int64_t                     pixmap_hash_;
+    QPointF                             prevPoint_;
+    QPointF                             prevMovePoint_;
+    QList<QPointF>                      offsets_;
 
-    QMap<QString, bool>         visible_;
-    bool                        hideBackround_;
-    bool                        hideBackround1_;
-    int32_t                     hShape_;
-    int32_t                     hVertex_;
-    int32_t                     hEdge_;
+    float                               scale_{1.0};
+    QPixmap                             pixmap_;
+    size_t                              pixmap_hash_;
 
-    int32_t                     lasthShape_;
-    int32_t                     lasthVertex_;
-    int32_t                     lasthEdge_;
+    QMap<QString, bool>                 visible_;
+    bool                                hideBackround_;
+    bool                                hideBackround1_;
+    int32_t                             hShape_;
+    int32_t                             hVertex_;
+    int32_t                             hEdge_;
 
-    bool                        movingShape_;
-    bool                        snapping_;
-    bool                        hShapeIsSelected_;
+    int32_t                             lasthShape_;
+    int32_t                             lasthVertex_;
+    int32_t                             lasthEdge_;
 
-    QPainter                    painter_;
-    QCursor                     cursor_;
-    QPointF                     dragging_start_pos_;
-    bool                        is_dragging_;
-    bool                        is_dragging_enabled_;
+    bool                                movingShape_;
+    bool                                snapping_;
+    bool                                hShapeIsSelected_;
 
-    QList<QMenu *>              menus_;
+    QPainter                            painter_;
+    QCursor                             cursor_;
+    QPointF                             dragging_start_pos_;
+    bool                                is_dragging_;
+    bool                                is_dragging_enabled_;
 
-    QMenu                       clickOfShapes_;
-    QMenu                       clickOfSelect_;
+    QList<QMenu *>                      menus_;
 
     bool fillDrawing() const;
     void setFillDrawing(bool value);
@@ -148,7 +155,8 @@ private:
     void createMode(const QString &value);
     void set_ai_model_name(const std::string &model_name);
     SamSession &get_osam_session();
-    void update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels, TlShape &shape);
+    void submit_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels);
+    void update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels);
     void storeShapes();
     bool isShapeRestorable();
     void restoreShape();
@@ -210,6 +218,6 @@ private:
     void update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const QString &createMode);
     QPointF snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex);
 
-    void update_label(const TlShape &shape);
+    void update_shape_info(const TlShape &shape);
 };
-#endif // __INC_CANVAS_H
+#endif //__INC_CANVAS_H

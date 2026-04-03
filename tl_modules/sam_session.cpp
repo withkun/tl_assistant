@@ -1,18 +1,12 @@
 #include "sam_session.h"
 #include "sam_apis.h"
 
-#include <future>
-#include <fstream>
-
-#include <QApplication>
-#include <QProgressDialog>
-
 
 SamSession::SamSession(const std::string &name, const int32_t cache_size) : model_name_(name), cache_size_(cache_size) {
     memoryInfo_ = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
 }
 
-GenerateResponse SamSession::run(const cv::Mat &image, const int64_t &image_id,
+GenerateResponse SamSession::run(const cv::Mat &image, const size_t image_id,
                                  const std::vector<cv::Point2f> &point_coords, const std::vector<float> &point_labels,
                                  const std::vector<std::string> &texts) {
     Prompt prompt;
@@ -33,7 +27,7 @@ GenerateResponse SamSession::run(const cv::Mat &image, const int64_t &image_id,
     return model_->generate(request);
 }
 
-ImageEmbedding SamSession::get_or_compute_embedding(const cv::Mat &image, const int64_t &image_id) {
+ImageEmbedding SamSession::get_or_compute_embedding(const cv::Mat &image, const size_t image_id) {
     //for key, embedding in self._embedding_cache:
     //    if key == image_id:
     //        return embedding
@@ -52,24 +46,11 @@ ImageEmbedding SamSession::get_or_compute_embedding(const cv::Mat &image, const 
         return image_embedding;
     }
 
-    QProgressDialog progressDialog("AI解码中, 请稍候...", "Cancel", 0, 0, nullptr, Qt::FramelessWindowHint);
-    progressDialog.setWindowModality(Qt::WindowModal);  // 确保用户无法操作其他窗口
-    progressDialog.setCancelButton(nullptr);    // 隐藏取消按钮
-    progressDialog.setMinimumDuration(100);     // 延迟100ms显示, 避免闪屏
-    progressDialog.show();                      // 启动对话框展示
-    QApplication::processEvents();              // 确保对话框立即渲染
-
-    std::future<ImageEmbedding> future = std::async(std::launch::async, [this, &image]() {
-                                             auto *model = get_or_load_model();
-                                             return model->encode_image(image);
-                                         });
-    while (future.wait_for(std::chrono::milliseconds(20)) != std::future_status::ready) {
-        //QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-        //progressDialog.update();
-    }
-    ImageEmbedding image_embedding = future.get();
-
-    progressDialog.close();     // 关闭销毁
+    // 这里需要加载模型与图像编码耗时较长, 需要防止GUI界面假死.
+    // 非GUI线程创建和操作QProgressDialog违反QT的GUI线程规则.
+    // 所有GUI操作(包括QWidget及其子类的创建, 显示, 更新)必须在主线程执行.
+    auto *const model = get_or_load_model();
+    ImageEmbedding image_embedding = model->encode_image(image);
 
     SPDLOG_INFO("Set computing embedding for cache_key={}", image_id);
     //self._embedding_cache.append((image_id, embedding))
@@ -110,25 +91,4 @@ void SamSession::CloneOrtValue(Ort::Value &tensor, Ort::Value &value)  const {
     const auto t = typeShape.GetElementType();
     value = Ort::Value::CreateTensor(memoryInfo_, tensor.GetTensorMutableRawData(), b, s.data(), s.size(), t);
     SPDLOG_INFO("copy image embedding: {}, element count: {}, size bytes: {}", typeShape.GetShape(), typeShape.GetElementCount(), b);
-}
-
-void toFile(const std::string &name, const Ort::Value &tensor) {
-    const auto dataDims = tensor.GetTensorTypeAndShapeInfo().GetShape();
-    std::ofstream ofs(name, std::ios::out | std::ios::binary);
-    ofs.write(reinterpret_cast<const char *>(tensor.GetTensorData<float *>()), mult_size(dataDims) * sizeof(float));
-    ofs.close();
-}
-
-void fromFile(const std::string &path, const cv::Mat &blob) {
-    std::ifstream ifs(path, std::ios::in|std::ios::binary|std::ios::ate);
-    const size_t model_size = ifs.tellg();
-    ifs.seekg(0, ifs.beg);
-    ifs.read(reinterpret_cast<char *>(blob.data), model_size);
-}
-
-void fromFile(const std::string &path, std::vector<float> &blob) {
-    std::ifstream ifs(path, std::ios::in|std::ios::binary|std::ios::ate);
-    const size_t model_size = ifs.tellg();
-    ifs.seekg(0, ifs.beg);
-    ifs.read(reinterpret_cast<char *>(blob.data()), model_size);
 }

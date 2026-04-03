@@ -1,6 +1,9 @@
 #include "bbox_from_text.h"
 #include "polygon_from_mask.h"
 
+#include <future>
+#include <QApplication>
+
 
 namespace bbox_from_text {
 void get_bboxes_from_texts(
@@ -150,7 +153,16 @@ QList<TlShape> get_shapes_from_texts(
     SamSession *sam_session,
     const cv::Mat &image, size_t image_id, const std::vector<std::string> &texts
 ) {
-    const GenerateResponse response = sam_session->run(image, image_id, {}, {}, texts);
+    // 这里需要加载模型与图像编码耗时较长, 需要防止GUI界面假死.
+    //const GenerateResponse response = sam_session->run(image, image_id, {}, {}, texts);
+    std::future<GenerateResponse> future = std::async(std::launch::async, [&]() {
+                                               return sam_session->run(image, image_id, {}, {}, texts);
+                                           });
+    while (future.wait_for(std::chrono::milliseconds(20)) != std::future_status::ready) {
+        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    }
+    const GenerateResponse response = future.get();
+
     QList<TlShape> shapes;
     for (const auto &annotation : response.annotations) {
         shapes.push_back({});

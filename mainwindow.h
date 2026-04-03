@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QWidgetAction>
 #include <QGraphicsScene>
+#include <QProgressDialog>
 #include <QScrollArea>
 #include <QSettings>
 #include <QProcess>
@@ -48,6 +49,8 @@ public:
 
 
 private slots:
+    void slotTaskSubmit();
+    void slotTaskFinish();
     // slot for DeepLearning
     void slotActionSetup();
     void slotActionTrain();
@@ -124,6 +127,7 @@ private:
     AiPromptAnnotation                             *ai_text_to_annotation_widget_{nullptr};
     QWidgetAction                                  *select_ai_model_{nullptr};
     QWidgetAction                                  *ai_prompt_action_{nullptr};
+    QProgressDialog                                *progress_dialog_{nullptr};
 
     std::list<QAction *>                            actions_;
     std::list<QAction *>                            on_shapes_present_actions_;

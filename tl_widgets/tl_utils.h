@@ -1,15 +1,30 @@
 #ifndef __INC_UTILS_H
 #define __INC_UTILS_H
 
-#include <QPoint>
-#include <QAction>
 #include <QToolBar>
-#include <QPushButton>
 #include <QValidator>
 
-#include <opencv2/opencv.hpp>
+#include "base/format_cv.h"
+#include "base/format_qt.h"
+
 
 inline constexpr int32_t None = std::numeric_limits<int32_t>::min();
+
+template <typename T>
+int32_t mult_size(const std::vector<T> &v) {
+    return std::accumulate(v.begin(), v.end(), T(1), std::multiplies<T>());
+}
+
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const std::vector<T> &v) {
+    os << "[";
+    for (int i = 0; i < v.size(); ++i) {
+        os << v[i];
+        if (i != v.size() - 1) { os << ", "; }
+    }
+    os << "]";
+    return os;
+}
 
 using QKey = std::set<QString>;
 
@@ -45,4 +60,4 @@ class utils {
 
     static cv::Mat img_b64_to_arr(const std::string &b64_string);
 };
-#endif // __INC_UTILS_H
+#endif //__INC_UTILS_H

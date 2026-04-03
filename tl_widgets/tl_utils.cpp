@@ -1,8 +1,8 @@
 #include "tl_utils.h"
 
 #include "base64.h"
-#include "spdlog/spdlog.h"
-#include "base/format_qt.h"
+#include "onnxruntime_cxx_api.h"
+#include <fstream>
 
 #include <QMenu>
 #include <QBuffer>
@@ -213,7 +213,7 @@ qreal utils::distanceToLine(const QPointF &point, const QLineF &line) {
 }
 
 QString utils::HashPixmap(const QPixmap &pixmap) {
-    QImage image = pixmap.toImage();
+    const QImage image = pixmap.toImage();
     QByteArray byteArray;
     QBuffer buffer(&byteArray);
     buffer.open(QIODevice::WriteOnly);
@@ -222,10 +222,9 @@ QString utils::HashPixmap(const QPixmap &pixmap) {
 
     QCryptographicHash hash(QCryptographicHash::Sha256);
     hash.addData(byteArray);
-    QByteArray hashResult = hash.result();
+    const QByteArray hashResult = hash.result();
 
-    QString hashString = QString(hashResult.toHex()); // 将结果转换为十六进制字符串形式
-    return hashString;
+    return QString(hashResult.toHex()); // 将结果转换为十六进制字符串形式
 }
 
 cv::Mat utils::ImageToMat(const QImage &image) {
@@ -340,3 +339,25 @@ cv::Mat utils::img_b64_to_arr(const std::string &b64_string) {
 //    img_pil = PIL.Image.fromarray(img_arr)
 //    img_data = img_pil_to_data(img_pil)
 //    return img_data
+
+
+void toFile(const std::string &name, const Ort::Value &tensor) {
+    const auto dataDims = tensor.GetTensorTypeAndShapeInfo().GetShape();
+    std::ofstream ofs(name, std::ios::out | std::ios::binary);
+    ofs.write(reinterpret_cast<const char *>(tensor.GetTensorData<float *>()), mult_size(dataDims) * sizeof(float));
+    ofs.close();
+}
+
+void fromFile(const std::string &path, const cv::Mat &blob) {
+    std::ifstream ifs(path, std::ios::in|std::ios::binary|std::ios::ate);
+    const size_t model_size = ifs.tellg();
+    ifs.seekg(0, ifs.beg);
+    ifs.read(reinterpret_cast<char *>(blob.data), model_size);
+}
+
+void fromFile(const std::string &path, std::vector<float> &blob) {
+    std::ifstream ifs(path, std::ios::in|std::ios::binary|std::ios::ate);
+    const size_t model_size = ifs.tellg();
+    ifs.seekg(0, ifs.beg);
+    ifs.read(reinterpret_cast<char *>(blob.data()), model_size);
+}
