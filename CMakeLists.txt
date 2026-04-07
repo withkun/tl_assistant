@@ -96,7 +96,7 @@ set(TL_SOURCES
     tl_widgets/zoom_widget.cpp
     tl_widgets/status_stats.h
     tl_widgets/status_stats.cpp
-    tl_widgets/np_utils.h
+    tl_widgets/numpy_utils.h
 )
 
 set(AI_SOURCES

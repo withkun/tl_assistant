@@ -1,8 +1,9 @@
-#ifndef __INC_NP_UTILS_H
-#define __INC_NP_UTILS_H
+#ifndef __INC_NUMPY_UTILS_H
+#define __INC_NUMPY_UTILS_H
 
 #include <vector>
 #include <algorithm>
+#include "opencv2/opencv.hpp"
 
 namespace np {
 // 返回元素的符号，即1（正数），0（零），或-1（负数）
@@ -72,4 +73,4 @@ T ptp_max(const std::vector<cv::Point_<T>> &coords) {
 }
 
 } //namespace np
-#endif // __INC_NP_UTILS_H
+#endif //__INC_NUMPY_UTILS_H

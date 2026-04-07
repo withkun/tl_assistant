@@ -28,7 +28,6 @@ DEFINE_string(output_file, "", "file name for output");
 DEFINE_string(output_dir, "", "output file directory");
 
 
-
 // 初始化日志系统
 static void slogInit() {
     std::vector<spdlog::sink_ptr> sinks;
@@ -57,6 +56,7 @@ static void slogInit() {
     spdlog::set_pattern("%^[%Y-%m-%dT%T.%f,%L,%t,%s:%#:%!]%$ %v");
     spdlog::set_level(spdlog::level::info);
 
+    // 打印输出测试
     SPDLOG_INFO("程序启动 ...");
     SPDLOG_INFO("Program started ...");
 }
