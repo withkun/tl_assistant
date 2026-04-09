@@ -1221,6 +1221,8 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
     if (drawing()) {
         if (key == Qt::Key_Escape && current_) {
             current_.clear();
+            ai_assist_points_.clear();
+            ai_assist_shape_.clear();
             emit drawingPolygon(false);
             update();
         } else if ((key == Qt::Key_Return || key == Qt::Key_Space) && canCloseShape()) {
@@ -1318,6 +1320,8 @@ void Canvas::loadShapes(const QList<TlShape> &shapes, bool replace) {
     }
     storeShapes();
     current_.clear();
+    ai_assist_points_.clear();
+    ai_assist_shape_.clear();
     hShape_ = None;
     hVertex_ = None;
     hEdge_ = None;

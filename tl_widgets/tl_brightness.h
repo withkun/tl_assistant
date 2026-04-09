@@ -11,8 +11,10 @@ public:
 
     void onNewValue(int32_t value);
 
-    QSlider                                *slider_brightness_;
-    QSlider                                *slider_contrast_;
+    QSlider                                *slider_contrast_{nullptr};
+    QSlider                                *slider_brightness_{nullptr};
+    QSlider                                *slider_saturation_{nullptr};
+    QSlider                                *slider_sharpness_{nullptr};
 
 private:
     const double                            base_value_{50.0};

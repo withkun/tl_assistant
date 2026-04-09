@@ -1053,7 +1053,7 @@ void MainWindow::switch_canvas_mode(bool edit, const QString &createMode) {
         !edit && AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE.contains(createMode)
     );
     this->ai_assisted_annotation_widget_->setEnabled(
-        !edit && std::set<QString>{"ai_polygon", "ai_mask"}.contains(createMode)
+        !edit && QKey{"ai_polygon", "ai_mask"}.contains(createMode)
     );
 }
 

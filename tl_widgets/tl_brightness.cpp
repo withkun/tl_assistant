@@ -37,8 +37,10 @@ BrightnessContrast::BrightnessContrast(const QImage &img, const std::function<vo
     };
 
     auto *const layout = new QVBoxLayout();
+    this->slider_contrast_   = fNewSlider("Contrast:",   layout);
     this->slider_brightness_ = fNewSlider("Brightness:", layout);
-    this->slider_contrast_ = fNewSlider("Contrast:", layout);
+    this->slider_saturation_ = fNewSlider("Saturation:", layout);
+    this->slider_sharpness_  = fNewSlider("Sharpness:",  layout);
     this->setLayout(layout);
 
     this->alpha_ = QImage();
@@ -55,14 +57,20 @@ BrightnessContrast::BrightnessContrast(const QImage &img, const std::function<vo
 }
 
 void BrightnessContrast::onNewValue(int32_t value) {
+    const double contrast   = slider_contrast_->value() / base_value_;
     const double brightness = slider_brightness_->value() / base_value_;
-    const double contrast = slider_contrast_->value() / base_value_;
+    const double saturation = slider_saturation_->value() / base_value_;
+    const double sharpness  = slider_sharpness_->value() / base_value_;
 
     QImage img = this->img_.copy(); // 深拷贝.
-    if (static_cast<int32_t>(brightness) != 1)
+    if (brightness != 1.0f)
         img = Brightness(img).enhance(brightness);
-    if (static_cast<int32_t>(contrast) != 1)
+    if (contrast != 1.0f)
         img = Contrast(img).enhance(contrast);
+    if (saturation != 1.0f)
+        img = Saturation(img).enhance(saturation);
+    if (sharpness != 1.0f)
+        img = Sharpness(img).enhance(sharpness);
 
     callback_(img);
 }
