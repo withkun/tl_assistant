@@ -97,6 +97,8 @@ set(TL_SOURCES
     tl_widgets/status_stats.h
     tl_widgets/status_stats.cpp
     tl_widgets/numpy_utils.h
+    tl_widgets/image_enhance.h
+    tl_widgets/image_enhance.cpp
 )
 
 set(AI_SOURCES

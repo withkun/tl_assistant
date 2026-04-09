@@ -6,16 +6,18 @@
 
 class BrightnessContrast : public QDialog {
 public:
-    explicit BrightnessContrast(const QImage &img, std::function<void()> callback, QWidget *parent = nullptr);
+    explicit BrightnessContrast(const QImage &img, const std::function<void(const QImage &img)> &callback, QWidget *parent = nullptr);
     ~BrightnessContrast() override = default;
 
     void onNewValue(int32_t value);
 
+    QSlider                                *slider_brightness_;
+    QSlider                                *slider_contrast_;
 
-    std::function<void()> callback_;
-    static int32_t  base_value_;
-
-    QSlider        *slider_brightness_;
-    QSlider        *slider_contrast_;
+private:
+    const double                            base_value_{50.0};
+    std::function<void(const QImage &img)>  callback_;
+    QImage                                  img_;
+    QImage                                  alpha_;
 };
 #endif //__INC_BRIGHTNESS_CONTRAST_H

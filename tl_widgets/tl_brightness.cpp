@@ -1,60 +1,68 @@
 #include "tl_brightness.h"
+#include "image_enhance.h"
 
 #include <QLabel>
 #include <QHBoxLayout>
 
 
-int32_t BrightnessContrast::base_value_ = 50;
+BrightnessContrast::BrightnessContrast(const QImage &img, const std::function<void(const QImage &img)> &callback, QWidget *parent) : QDialog(parent) {
+    this->setModal(true);
+    this->setWindowTitle("Brightness/Contrast");
+    this->setWindowFlags(Qt::Dialog | Qt::MSWindowsFixedSizeDialogHint);
 
-BrightnessContrast::BrightnessContrast(const QImage &img, std::function<void()> callback, QWidget *parent) : QDialog(parent) {
-    setModal(true);
-    setWindowTitle("Brightness/Contrast");
-
-    const auto fSlider = [=](auto title, auto *parent) {
+    const auto fNewSlider = [=](auto title, auto v_layout) {
         auto *const layout = new QHBoxLayout();
         auto *const title_label = new QLabel(tr(title));
         title_label->setFixedWidth(75);
         layout->addWidget(title_label);
 
         auto *const slider = new QSlider(Qt::Horizontal);
+        slider->setFixedWidth(150);
         slider->setRange(0, 3 * base_value_);
         slider->setValue(base_value_);
         layout->addWidget(slider);
 
-        auto *const value_label = new QLabel(QString("%1").arg(slider->value() / base_value_));
+        // filedWidth: 点位总长度, 如果filedWidth大于实际值, 使用fillChar补充.
+        // precision: 精度, 当fmt为f时代表小数点后面的位数, 当fmt为g时代表总共的位数.
+        auto *const value_label = new QLabel(QString("%1").arg(slider->value() / base_value_, 0, 'f', 2));
         value_label->setAlignment(Qt::AlignRight);
         layout->addWidget(value_label);
 
         QObject::connect(slider, &QSlider::valueChanged, this, &BrightnessContrast::onNewValue);
         QObject::connect(slider, &QSlider::valueChanged, [=]() {
-            value_label->setText(QString("%1").arg(slider->value() / base_value_)); }
+            value_label->setText(QString("%1").arg(slider->value() / base_value_, 0, 'f', 2)); }
         );
-        parent->addLayout(layout);
+        v_layout->addLayout(layout);
         return slider;
     };
 
-    auto *v_layout = new QVBoxLayout();
-    slider_brightness_ = fSlider("Brightness:", v_layout);
-    slider_contrast_ = fSlider("Contrast:", v_layout);
+    auto *const layout = new QVBoxLayout();
+    this->slider_brightness_ = fNewSlider("Brightness:", layout);
+    this->slider_contrast_ = fNewSlider("Contrast:", layout);
+    this->setLayout(layout);
 
-    //if (img.mode != "RGB"):
-    //    raise ValueError("Image mode must be RGB")
-    //self.img = img
+    this->alpha_ = QImage();
+    if (img.hasAlphaChannel()) {
+        this->alpha_ = img.convertToFormat(QImage::Format_Alpha8);
+    }
+    if (img.format() != QImage::Format_RGB32 && img.format() != QImage::Format_ARGB32 && img.format() != QImage::Format_RGB888) {
+        this->img_ = img.convertToFormat(QImage::Format_RGB888);
+    } else {
+        this->img_ = img;
+    }
+
     callback_ = callback;
 }
 
 void BrightnessContrast::onNewValue(int32_t value) {
-    double brightness = 1.0*slider_brightness_->value() / base_value_;
-    double contrast = 1.0*slider_contrast_->value() / base_value_;
+    const double brightness = slider_brightness_->value() / base_value_;
+    const double contrast = slider_contrast_->value() / base_value_;
 
-    //img = self.img;
-    //if (brightness != 1)
-    //    img = PIL.ImageEnhance.Brightness(img).enhance(brightness);
-    //if (contrast != 1)
-    //    img = PIL.ImageEnhance.Contrast(img).enhance(contrast);
-    //
-    //qimage = QImage(
-    //    img.tobytes(), img.width, img.height, img.width * 3, QImage.Format_RGB888
-    //)
-    //self.callback(qimage);
+    QImage img = this->img_.copy(); // 深拷贝.
+    if (static_cast<int32_t>(brightness) != 1)
+        img = Brightness(img).enhance(brightness);
+    if (static_cast<int32_t>(contrast) != 1)
+        img = Contrast(img).enhance(contrast);
+
+    callback_(img);
 }

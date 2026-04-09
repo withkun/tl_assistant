@@ -6,12 +6,29 @@
 
 namespace std {
 template<>
-struct formatter<cv::Mat> {
-    formatter<std::string> formatter_;
+struct formatter<cv::Mat> : std::formatter<std::string> {
+    auto format(const cv::Mat &val, std::format_context &ctx) const -> decltype(ctx.out()) {
+        const std::string str = std::format("[{}x{},{}]", val.cols, val.rows, reinterpret_cast<const void *>(&val));
+        return std::formatter<std::string>::format(str, ctx);
+    }
+};
+
+template<typename T>
+struct formatter<cv::Rect_<T>> {
+    formatter<T> formatter_;
     template <typename FormatContext>
-    auto format(cv::Mat const &val, FormatContext &ctx) const -> decltype(ctx.out()) {
-        std::string str = std::format("[{}x{},{}]", val.cols, val.rows, reinterpret_cast<const void *>(&val));
-        return formatter_.format(str, ctx);
+    auto format(cv::Rect_<T> const &val, FormatContext &ctx) const -> decltype(ctx.out()) {
+        formatter<std::string> formatter;
+        formatter.format("[", ctx);
+        formatter_.format(val.x, ctx);
+        formatter.format(",", ctx);
+        formatter_.format(val.y, ctx);
+        formatter.format(",", ctx);
+        formatter_.format(val.width, ctx);
+        formatter.format(",", ctx);
+        formatter_.format(val.height, ctx);
+        formatter.format("]", ctx);
+        return ctx.out();
     }
 
     template <typename ParseContext>
@@ -67,30 +84,6 @@ struct formatter<cv::Size_<T>> {
     auto format(const cv::Size_<T> val, FormatContext &ctx) const -> decltype(ctx.out()) {
         formatter<std::string> formatter;
         formatter.format("[", ctx);
-        formatter_.format(val.width, ctx);
-        formatter.format(",", ctx);
-        formatter_.format(val.height, ctx);
-        formatter.format("]", ctx);
-        return ctx.out();
-    }
-
-    template <typename ParseContext>
-    auto parse(ParseContext &ctx) -> decltype(ctx.begin()) {
-        return formatter_.parse(ctx);
-    }
-};
-
-template<typename T>
-struct formatter<cv::Rect_<T>> {
-    formatter<T> formatter_;
-    template <typename FormatContext>
-    auto format(cv::Rect_<T> const &val, FormatContext &ctx) const -> decltype(ctx.out()) {
-        formatter<std::string> formatter;
-        formatter.format("[", ctx);
-        formatter_.format(val.x, ctx);
-        formatter.format(",", ctx);
-        formatter_.format(val.y, ctx);
-        formatter.format(",", ctx);
         formatter_.format(val.width, ctx);
         formatter.format(",", ctx);
         formatter_.format(val.height, ctx);
@@ -189,20 +182,6 @@ struct formatter<cv::MatSize> : formatter<string_view> {
 //    os << "]";
 //    return os;
 //}
-
-//template<typename T>
-//struct formatter<std::vector<T>> : formatter<std::string> {
-//    auto format(const std::vector<T> &vec, format_context &ctx) const {
-//        std::stringstream ss;
-//        ss << "[";
-//        for (size_t i = 0; i < vec.size(); ++i) {
-//            if (i != 0) { ss << ", "; }
-//            ss << vec[i];
-//        }
-//        ss << "]";
-//        return formatter<std::string>::format(ss.str(), ctx);
-//    }
-//};
 
 template<typename T>
 struct formatter<std::vector<T>> : formatter<string_view> {

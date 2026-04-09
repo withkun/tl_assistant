@@ -1638,6 +1638,7 @@ void MainWindow::enableKeepPrevScale(bool enabled) {
 }
 
 void MainWindow::onNewBrightnessContrast(const QImage &image) {
+    // QPixmap::fromImage: 深拷贝, 原始QImage的数据会被复制到新的QPixmap中.
     canvas_->loadPixmap(QPixmap::fromImage(image), this->filename_, false);
 }
 
@@ -1670,8 +1671,8 @@ void MainWindow::brightnessContrast(bool value, bool is_initial_load) {
         contrast,
     );
     auto dialog = BrightnessContrast(
-        QImage::fromData(imageData_).convertedTo(QImage::Format_RGB888),
-        [this] { onNewBrightnessContrast(this->image_); },
+        QImage::fromData(imageData_),
+        [this](const QImage &image) { onNewBrightnessContrast(image); },
         this
     );
 
@@ -1777,7 +1778,7 @@ bool MainWindow::load_file(QString filename) {
         label_file_.reset();
     }
     const auto t0 = std::chrono::system_clock::now();
-    auto image = QImage::fromData(imageData_);
+    const auto image = QImage::fromData(imageData_);
     const auto t1 = std::chrono::system_clock::now();
     SPDLOG_INFO("Created QImage in {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
 

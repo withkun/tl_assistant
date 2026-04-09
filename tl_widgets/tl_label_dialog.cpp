@@ -7,6 +7,7 @@
 #include <QCompleter>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QApplication>
 #include <QRegularExpression>
 
 
@@ -18,6 +19,8 @@ void LabelLineEdit::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Up || event->key() == Qt::Key_Down) {
         this->clearFocus();
         list_widget_->setFocus();
+        auto *fwdEvent = new QKeyEvent(event->type(), event->key(), event->modifiers());
+        QApplication::postEvent(list_widget_, fwdEvent);
     } else {
         QLineEdit::keyPressEvent(event);
     }
