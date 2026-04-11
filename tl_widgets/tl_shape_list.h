@@ -34,8 +34,8 @@ private:
     void InitItem(const QString &text);
 };
 
-// QStandardItemModel --> QAbstractItemModel --> QObject
-class StandardItemModel : public QStandardItemModel {
+// ShapeItemModel -> QStandardItemModel -> QAbstractItemModel -> QObject
+class ShapeItemModel : public QStandardItemModel {
     Q_OBJECT
 public:
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
@@ -48,10 +48,10 @@ signals:
 // QListView是列表形式的展示控件
 // QListWidget继承自QListView, 是表格形式的展示控件
 // 本质区别: QListView基于Model(需要自己建模), QListWidget基于Item
-class ShapeListWidget : public QListView {
+class ShapeListView : public QListView {
     Q_OBJECT
 public:
-    explicit ShapeListWidget(QWidget *parent = nullptr);
+    explicit ShapeListView(QWidget *parent = nullptr);
 
 signals:
     void itemDropped();
@@ -63,7 +63,7 @@ public slots:
 
 private:
     QList<ShapeListItem *>      selectedItems_;
-    StandardItemModel          *model_{nullptr};
+    ShapeItemModel             *model_{nullptr};
 
 public:
     //void __init__();

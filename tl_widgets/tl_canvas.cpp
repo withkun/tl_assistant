@@ -978,7 +978,6 @@ void Canvas::paintEvent(QPaintEvent *event) {
         );
     }
 
-    TlShape::scale = scale_;
     TlShape::scale_ = scale_;
     for (int32_t idx = 0; idx < shapes_.size(); ++idx) {
         auto &shape = shapes_[idx];
@@ -1433,10 +1432,17 @@ QPointF Canvas::snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex)
 void Canvas::update_shape_info(const TlShape &shape) {
     for (auto &s : shapes_) {
         if (s == shape) {
-            s.label_       = shape.label_;
-            s.flags_       = shape.flags_;
-            s.group_id_    = shape.group_id_;
-            s.description_ = shape.description_;
+            s.label_                = shape.label_;
+            s.flags_                = shape.flags_;
+            s.group_id_             = shape.group_id_;
+            s.description_          = shape.description_;
+
+            s.line_color_           = shape.line_color_;
+            s.vertex_fill_color_    = shape.vertex_fill_color_;
+            s.hvertex_fill_color_   = shape.hvertex_fill_color_;
+            s.fill_color_           = shape.fill_color_;
+            s.select_line_color_    = shape.select_line_color_;
+            s.select_fill_color_    = shape.select_fill_color_;
         }
     }
 }

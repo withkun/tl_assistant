@@ -22,12 +22,11 @@ QColor TlShape::select_fill_color       = QColor(0, 255, 0, 64);
 QColor TlShape::hvertex_fill_color      = QColor(255, 255, 255, 255);
 
 // Default handle style, size, and zoom scale
-int32_t TlShape::point_type             = P_ROUND;
-int32_t TlShape::point_size             = 8;
-float   TlShape::scale                  = 1.0;
+int32_t TlShape::point_type_            = P_ROUND;
+int32_t TlShape::point_size_            = 8;
+float   TlShape::scale_                 = 1.0;
 
 QColor TlShape::current_vertex_fill_color;
-float  TlShape::scale_                  = 1.0;
 
 TlShape::TlShape(const QString &label,
                  const QColor &line_color,
@@ -67,9 +66,9 @@ TlShape::TlShape(const QString &label,
     this->select_fill_color_          = TlShape::select_fill_color;
     this->vertex_fill_color_          = TlShape::vertex_fill_color;
     this->hvertex_fill_color_         = TlShape::hvertex_fill_color;
-    this->point_type_                 = TlShape::point_type;
-    this->point_size_                 = TlShape::point_size;
-    this->scale_                      = TlShape::scale;
+    //this->point_type_                 = TlShape::point_type_;
+    //this->point_size_                 = TlShape::point_size_;
+    //this->scale_                      = TlShape::scale_;
     this->current_vertex_fill_color_  = TlShape::current_vertex_fill_color;
 
     this->uuid_                       = QUuid::createUuid().toString();
@@ -77,7 +76,7 @@ TlShape::TlShape(const QString &label,
 
 QPointF TlShape::scale_point(const QPointF &point) {
     // 展示缩放: 这里需要使用Canvas设置的全局变量, 其余计算使用局部变量始终保持为1.
-    return QPointF(point.x() * TlShape::scale_, point.y() * TlShape::scale_);
+    return { point.x() * TlShape::scale_, point.y() * TlShape::scale_ };
 }
 
 void TlShape::setShapeRefined(const QString &shape_type, const QList<QPointF> &points, const QList<int32_t> &point_labels, const cv::Mat &mask) {
@@ -325,12 +324,12 @@ void TlShape::paint(QPainter &painter) {
 }
 
 void TlShape::drawVertex(QPainterPath &path, int32_t i) {
-    auto d = point_size_;
+    double d = point_size_;
     auto shape = point_type_;
-    auto point = scale_point(points_[i]);
+    const auto point = scale_point(points_[i]);
     if (i == highlightIndex_) {
-        const auto [size, shape] = highlightSettings_[highlightMode_];
-        d *= size;
+        const auto [size, type] = highlightSettings_[highlightMode_];
+        d *= size; shape = type;
     }
     if (this->highlightIndex_ != None) {
         current_vertex_fill_color_ = hvertex_fill_color_;
@@ -347,7 +346,7 @@ void TlShape::drawVertex(QPainterPath &path, int32_t i) {
 }
 
 int32_t TlShape::nearestVertex(QPointF point, float epsilon) {
-    auto min_distance = std::numeric_limits<float>::max();
+    auto min_distance = std::numeric_limits<double>::max();
     int32_t min_i = None;
     point = QPointF(point.x() * scale_, point.y() * scale_);
     for (auto i = 0; i < points_.size(); ++i) {
@@ -362,7 +361,7 @@ int32_t TlShape::nearestVertex(QPointF point, float epsilon) {
 }
 
 int32_t TlShape::nearestEdge(QPointF point, float epsilon) {
-    auto min_distance = std::numeric_limits<float>::max();
+    auto min_distance = std::numeric_limits<double>::max();
     auto post_i = None;
     point = scale_point(point);
     for (auto i = 0; i < points_.size(); ++i) {
@@ -385,11 +384,11 @@ bool TlShape::containsPoint(QPointF point) {
     if (this->shape_type_ == "point") {
         if (this->points_.empty())
             return false;
-        return utils::distance(point - this->points_[0]) <= this->point_size / 2;
+        return utils::distance(point - this->points_[0]) <= this->point_size_ / 2;
     }
     if (!this->mask_.empty()) {
-        int32_t raw_y = int(round(point.y() - this->points_[0].y()));
-        int32_t raw_x = int(round(point.x() - this->points_[0].x()));
+        const int32_t raw_y = static_cast<int32_t>(round(point.y() - this->points_[0].y()));
+        const int32_t raw_x = static_cast<int32_t>(round(point.x() - this->points_[0].x()));
         if (
             raw_y < 0
             || raw_y >= this->mask_.rows
@@ -499,14 +498,15 @@ void TlShape::SetValue(const TlShape &shape) {
     this->select_fill_color_          = shape.select_fill_color_;
     this->vertex_fill_color_          = shape.vertex_fill_color_;
     this->hvertex_fill_color_         = shape.hvertex_fill_color_;
-    this->point_type_                 = shape.point_type_;
-    this->point_size_                 = shape.point_size_;
-    this->scale_                      = shape.scale_;
+    //this->point_type_                 = shape.point_type_;
+    //this->point_size_                 = shape.point_size_;
+    //this->scale_                      = shape.scale_;
     this->current_vertex_fill_color_  = shape.current_vertex_fill_color_;
     this->uuid_                       = shape.uuid_;
 }
 
 void TlShape::clear() {
+    label_.clear();
     points_.clear();
     point_labels_.clear();
     shape_type_.clear();
@@ -527,7 +527,7 @@ TlShape &TlShape::operator=(const TlShape &shape) {
 }
 
 bool TlShape::operator==(const TlShape &shape) const {
-    return (uuid_ == shape.uuid_) /*&& (label_ == shape.label_) && (points_ == shape.points_) && (point_labels_ == shape.point_labels_)*/;
+    return (uuid_ == shape.uuid_);
 }
 
 bool TlShape::operator!=(const TlShape &shape) const {

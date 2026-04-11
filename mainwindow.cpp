@@ -93,7 +93,7 @@ MainWindow::MainWindow(const QString &config_file,
     );
 
     // Set point size from config file
-    TlShape::point_size = config_["shape"]["point_size"].as<int32_t>();
+    TlShape::point_size_ = config_["shape"]["point_size"].as<int32_t>();
 
     this->copied_shapes_ = {};
 
@@ -455,7 +455,7 @@ void MainWindow::setup_menus() {
     label_menu_ = new QMenu();
     utils::addActions(label_menu_, {edit_, delete_});
     shape_list_->setContextMenuPolicy(Qt::CustomContextMenu);
-    QObject::connect(shape_list_, &ShapeListWidget::customContextMenuRequested, this, &MainWindow::popLabelListMenu);
+    QObject::connect(shape_list_, &ShapeListView::customContextMenuRequested, this, &MainWindow::popLabelListMenu);
 
     utils::addActions(
         file_menu_,
@@ -697,16 +697,16 @@ void MainWindow::setup_dock_widgets() {
     this->flags_dock_->setWidget(this->flags_list_);
     QObject::connect(flags_list_, &QListWidget::itemChanged, this, &MainWindow::setDirty);
 
-    this->shape_list_ =  new ShapeListWidget();   // LabelListWidget
-    QObject::connect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
-    QObject::connect(shape_list_, &ShapeListWidget::itemDoubleClicked, this, &MainWindow::edit_label);
-    QObject::connect(shape_list_, &ShapeListWidget::itemChanged, this, &MainWindow::labelItemChanged);
-    QObject::connect(shape_list_, &ShapeListWidget::itemDropped, this, &MainWindow::labelOrderChanged);
+    this->shape_list_ =  new ShapeListView();   // LabelListWidget()
+    QObject::connect(shape_list_, &ShapeListView::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::connect(shape_list_, &ShapeListView::itemDoubleClicked, this, &MainWindow::edit_label);
+    QObject::connect(shape_list_, &ShapeListView::itemChanged, this, &MainWindow::labelItemChanged);
+    QObject::connect(shape_list_, &ShapeListView::itemDropped, this, &MainWindow::labelOrderChanged);
     this->shape_dock_ = new QDockWidget(tr("Polygon Labels"), this);
     this->shape_dock_->setObjectName("Labels");
     this->shape_dock_->setWidget(this->shape_list_);
 
-    this->label_list_ =  new TlLabelList();    // UniqueLabelQListWidget
+    this->label_list_ =  new TlLabelList();    // UniqueLabelQListWidget()
     this->label_list_->setToolTip(
         tr("Select label to start annotating for it. Press 'Esc' to deselect.")
     );
@@ -1104,7 +1104,7 @@ void MainWindow::edit_label(bool value) {
         return;
     }
 
-    auto shape = items[0]->shape();
+    const auto shape = items[0]->shape();
 
     bool edit_text = true;
     bool edit_flags = true;
@@ -1186,7 +1186,7 @@ void MainWindow::edit_label(bool value) {
             shape.fill_color.getRgb(&r, &g, &b);
             item->setText(
                 QString("%1 <font color=\"#%2%3%4\">●</font>").arg(text.toHtmlEscaped())
-                    .arg(r, 2, 16, QLatin1Char('0')).arg(g, 2, 16, QLatin1Char('0')).arg(b, 2, 16, QLatin1Char('0'))
+                    .arg(r, 2, 16, '0').arg(g, 2, 16, '0').arg(b, 2, 16, '0')
             );
         } else {
             item->setText(QString("%1 (%2)").arg(shape.label_).arg(shape.group_id_));
@@ -1230,7 +1230,7 @@ void MainWindow::fileSelectionChanged() {
 
 // React to canvas signals.
 void MainWindow::shapeSelectionChanged(const QList<int32_t> &selected_shapes) {
-    QObject::disconnect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::disconnect(shape_list_, &ShapeListView::itemSelectionChanged, this, &MainWindow::label_selection_changed);
     for (auto &idx : canvas_->selectedShapes_) {
         canvas_->shapes_[idx].selected_ = false;
     }
@@ -1242,8 +1242,8 @@ void MainWindow::shapeSelectionChanged(const QList<int32_t> &selected_shapes) {
         shape_list_->selectItem(item);
         shape_list_->scrollToItem(item);
     }
-    QObject::connect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
-    auto n_selected = selected_shapes.size();
+    QObject::connect(shape_list_, &ShapeListView::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    const auto n_selected = selected_shapes.size();
     delete_->setEnabled(n_selected);
     duplicate_->setEnabled(n_selected);
     copy_->setEnabled(n_selected);
@@ -1274,7 +1274,7 @@ void MainWindow::addLabel(TlShape &shape) {
     shape.fill_color_.getRgb(&r, &g, &b);
     shape_list_item->setText(
         QString("%1 <font color=\"#%2%3%4\">●</font>").arg(text.toHtmlEscaped())
-            .arg(r, 2, 16, QLatin1Char('0')).arg(g, 2, 16, QLatin1Char('0')).arg(b, 2, 16, QLatin1Char('0'))
+            .arg(r, 2, 16, '0').arg(g, 2, 16, '0').arg(b, 2, 16, '0')
     );
     shape_list_item->setShape(shape);   // 更新完颜色后再设置.
 }
@@ -1331,12 +1331,12 @@ void MainWindow::remLabels(const QList<TlShape> &shapes) {
 }
 
 void MainWindow::load_shapes(QList<TlShape> &shapes, bool replace) {
-    QObject::disconnect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::disconnect(shape_list_, &ShapeListView::itemSelectionChanged, this, &MainWindow::label_selection_changed);
     for (auto &shape : shapes) {
         addLabel(shape);
     }
     shape_list_->clearSelection();
-    QObject::connect(shape_list_, &ShapeListWidget::itemSelectionChanged, this, &MainWindow::label_selection_changed);
+    QObject::connect(shape_list_, &ShapeListView::itemSelectionChanged, this, &MainWindow::label_selection_changed);
     canvas_->loadShapes(shapes, replace);
 }
 

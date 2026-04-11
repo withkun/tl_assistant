@@ -95,7 +95,7 @@ private:
     TlLabelList                                    *label_list_{nullptr};       // 标签列表
 
     QDockWidget                                    *shape_dock_{nullptr};
-    ShapeListWidget                                *shape_list_{nullptr};       // 轮廓列表
+    ShapeListView                                  *shape_list_{nullptr};       // 轮廓列表
 
     QDockWidget                                    *files_dock_{nullptr};
     QListWidget                                    *files_list_{nullptr};       // 文件列表

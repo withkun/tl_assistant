@@ -1,9 +1,7 @@
 #ifndef __INC_IMAGE_ENHANCE_H
 #define __INC_IMAGE_ENHANCE_H
 
-
 #include <QImage>
-
 
 class Enhance {
 public:

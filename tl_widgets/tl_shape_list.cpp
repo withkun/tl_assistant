@@ -20,7 +20,7 @@ void HTMLDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
     doc_->setHtml(options->text);
     options->text = "";
 
-    auto *style = (
+    const auto *style = (
         options->widget == nullptr ? QApplication::style() : options->widget->style()
     );
     style->drawControl(QStyle::CE_ItemViewItem, options, painter);
@@ -46,7 +46,7 @@ void HTMLDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
     }
 
     const int32_t margin_shift = 4;
-    auto margin = (option.rect.height() - options->fontMetrics.height()) / 2;
+    int32_t margin = (option.rect.height() - options->fontMetrics.height()) / 2;
     margin = margin - margin_shift;
     textRect.setTop(textRect.top() + margin);
 
@@ -60,29 +60,30 @@ void HTMLDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
 QSize HTMLDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const {
     const int32_t margin_shift = 4;
     return QSize(
-        int(doc_->idealWidth()),
-        int(doc_->size().height() - margin_shift)
+        static_cast<int32_t>(doc_->idealWidth()),
+        static_cast<int32_t>(doc_->size().height() - margin_shift)
     );
 }
 
 ShapeListItem::ShapeListItem(const QString &text, const TlShape &shape) : QStandardItem() {
-    InitItem(text);
     setShape(shape);
+    InitItem(text);
 }
 
 void ShapeListItem::InitItem(const QString &text) {
-    setText(text);
-    setCheckable(true);
-    setCheckState(Qt::Checked);
-    setEditable(false);
-    setTextAlignment(Qt::AlignBottom);
+    this->setText(text);
+    this->setCheckable(true);
+    this->setCheckState(Qt::Checked);
+    this->setEditable(false);
+    this->setTextAlignment(Qt::AlignBottom);
 }
 
 ShapeListItem *ShapeListItem::clone() const {
-    return new ShapeListItem(text(), shape());
+    return new ShapeListItem(text(), this->shape());
 }
 
 void ShapeListItem::setShape(const TlShape &shape) {
+    this->setData(QVariant(), Qt::UserRole);    // clear first: check equal in setData.
     this->setData(QVariant::fromValue(shape), Qt::UserRole);
 }
 
@@ -97,13 +98,13 @@ TlShape ShapeListItem::shape() const {
 //    return '{}("{}")'.format(self.__class__.__name__, self.text())
 
 
-bool StandardItemModel::removeRows(int row, int count, const QModelIndex &parent) {
+bool ShapeItemModel::removeRows(int row, int count, const QModelIndex &parent) {
     const auto ret = QStandardItemModel::removeRows(row, count, parent);
     emit itemDropped();
     return ret;
 }
 
-bool StandardItemModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) {
+bool ShapeItemModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) {
     // NOTE: By default, PyQt will overwrite items when dropped on them, so we need
     // to adjust the row/parent to insert after the item instead.
     //
@@ -123,31 +124,31 @@ bool StandardItemModel::dropMimeData(const QMimeData *data, Qt::DropAction actio
     return QStandardItemModel::dropMimeData(data, action, row, column, parent_);
 }
 
-ShapeListWidget::ShapeListWidget(QWidget *parent) : QListView(parent) {
+ShapeListView::ShapeListView(QWidget *parent) : QListView(parent) {
     this->selectedItems_.clear();
 
     this->setWindowFlags(Qt::Window);
 
-    this->model_ = new StandardItemModel();
+    this->model_ = new ShapeItemModel();
     this->model_->setItemPrototype(new ShapeListItem(""));
     this->setModel(this->model_);
 
-    this->setItemDelegate(new HTMLDelegate());
+    this->setItemDelegate(new HTMLDelegate(this));
     this->setSelectionMode(QAbstractItemView::ExtendedSelection);  // 选中模式
     this->setDragDropMode(QAbstractItemView::InternalMove);
     this->setDefaultDropAction(Qt::MoveAction);
 
-    QObject::connect(this, &ShapeListWidget::doubleClicked, this, &ShapeListWidget::itemDoubleClickedEvent);
-    QObject::connect(this->selectionModel(), &QItemSelectionModel::selectionChanged, this, &ShapeListWidget::itemSelectionChangedEvent);
-    QObject::connect(this->model_, &StandardItemModel::itemDropped, this, &ShapeListWidget::itemDroppedEvent);
-    QObject::connect(this->model_, &StandardItemModel::itemChanged, this, &ShapeListWidget::itemChangedEvent);
+    QObject::connect(this, &ShapeListView::doubleClicked, this, &ShapeListView::itemDoubleClickedEvent);
+    QObject::connect(this->selectionModel(), &QItemSelectionModel::selectionChanged, this, &ShapeListView::itemSelectionChangedEvent);
+    QObject::connect(this->model_, &ShapeItemModel::itemDropped, this, &ShapeListView::itemDroppedEvent);
+    QObject::connect(this->model_, &ShapeItemModel::itemChanged, this, &ShapeListView::itemChangedEvent);
 }
 
-int32_t ShapeListWidget::len() const {
+int32_t ShapeListView::len() const {
     return this->model_->rowCount();
 }
 
-QList<ShapeListItem *> ShapeListWidget::items() const {
+QList<ShapeListItem *> ShapeListView::items() const {
     QList<ShapeListItem *> items;
     for (auto row = 0; row < model_->rowCount(); ++row) {
         items.push_back(static_cast<ShapeListItem *>(model_->item(row)));
@@ -160,15 +161,15 @@ QList<ShapeListItem *> ShapeListWidget::items() const {
 //void TlShapeList::__iter__() {
 //}
 
-void ShapeListWidget::itemDroppedEvent() {
+void ShapeListView::itemDroppedEvent() {
     emit itemDropped();
 }
 
-void ShapeListWidget::itemChangedEvent(QStandardItem *item) {
+void ShapeListView::itemChangedEvent(QStandardItem *item) {
     emit itemChanged(static_cast<ShapeListItem *>(item));
 }
 
-void ShapeListWidget::itemSelectionChangedEvent(const QItemSelection &selected, const QItemSelection &deselect) {
+void ShapeListView::itemSelectionChangedEvent(const QItemSelection &selected, const QItemSelection &deselect) {
     QList<ShapeListItem *> selected1, deselect1;
     const QList<QModelIndex> sel_indexes = selected.indexes(), des_indexes = deselect.indexes();
     std::ranges::transform(sel_indexes, std::back_inserter(selected1), [this](const auto &idx) { return static_cast<ShapeListItem *>(this->model_->itemFromIndex(idx)); });
@@ -176,11 +177,11 @@ void ShapeListWidget::itemSelectionChangedEvent(const QItemSelection &selected, 
     emit itemSelectionChanged(selected1, deselect1);
 }
 
-void ShapeListWidget::itemDoubleClickedEvent(const QModelIndex &index) {
+void ShapeListView::itemDoubleClickedEvent(const QModelIndex &index) {
     emit itemDoubleClicked(static_cast<ShapeListItem *>(this->model_->itemFromIndex(index)));
 }
 
-QList<ShapeListItem *> ShapeListWidget::selectedItems() {
+QList<ShapeListItem *> ShapeListView::selectedItems() {
     //return [self.model().itemFromIndex(i) for i in self.selectedIndexes()]
     QList<ShapeListItem *> selected;
     const QList<QModelIndex> indexes = selectedIndexes();
@@ -188,11 +189,11 @@ QList<ShapeListItem *> ShapeListWidget::selectedItems() {
     return selected;
 }
 
-void ShapeListWidget::scrollToItem(ShapeListItem *item) {
+void ShapeListView::scrollToItem(ShapeListItem *item) {
     this->scrollTo(this->model_->indexFromItem(item));
 }
 
-void ShapeListWidget::addItem(ShapeListItem *item) {
+void ShapeListView::addItem(ShapeListItem *item) {
     if (item == nullptr) {
         throw std::invalid_argument("item must be LabelListWidgetItem");
     }
@@ -200,17 +201,17 @@ void ShapeListWidget::addItem(ShapeListItem *item) {
     item->setSizeHint(this->itemDelegate()->sizeHint(QStyleOptionViewItem(), QModelIndex()));
 }
 
-void ShapeListWidget::removeItem(ShapeListItem *item) {
+void ShapeListView::removeItem(ShapeListItem *item) {
     const auto index = this->model_->indexFromItem(item);
     this->model_->removeRows(index.row(), 1);
 }
 
-void ShapeListWidget::selectItem(ShapeListItem *item) {
+void ShapeListView::selectItem(ShapeListItem *item) {
     const auto index = this->model_->indexFromItem(item);
     selectionModel()->select(index, QItemSelectionModel::Select);
 }
 
-ShapeListItem *ShapeListWidget::findItemByShape(const TlShape &shape) {
+ShapeListItem *ShapeListView::findItemByShape(const TlShape &shape) {
     for (auto row = 0; row < this->model_->rowCount(); ++row) {
         auto *const item = static_cast<ShapeListItem *>(this->model_->item(row, 0));
         if (item->shape() == shape) {
@@ -220,11 +221,11 @@ ShapeListItem *ShapeListWidget::findItemByShape(const TlShape &shape) {
     throw std::runtime_error("cannot find shape: {}"); //.format(shape));
 }
 
-void ShapeListWidget::clear() {
+void ShapeListView::clear() {
     this->model_->clear();
     this->selectedItems_.clear();
 }
 
-bool ShapeListWidget::empty() const {
+bool ShapeListView::empty() const {
     return this->model_->rowCount() == 0;
 }

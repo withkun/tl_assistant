@@ -10,6 +10,7 @@
 #include <QMap>
 
 class TlShape : public QObject {
+    Q_OBJECT
 public:
     TlShape(const QString &label="",
             const QColor &line_color=TlShape::line_color,
@@ -39,10 +40,12 @@ public:   // 类变量:
     static QColor               select_line_color;
     static QColor               select_fill_color;
     static QColor               hvertex_fill_color;
-    static int32_t              point_type; // = P_ROUND
-    static int32_t              point_size; // = 8
-    static float                scale; // = 1.
+
     static QColor               current_vertex_fill_color;
+
+    static int32_t              point_type_;    // = P_ROUND
+    static int32_t              point_size_;    // = 8
+    static float                scale_;         // = 1.
 
 private:      // 实例变量
     friend class Canvas;
@@ -54,10 +57,6 @@ private:      // 实例变量
     QColor                      vertex_fill_color_;
     QColor                      hvertex_fill_color_;
     QColor                      current_vertex_fill_color_;
-    int32_t                     point_type_;
-    int32_t                     point_size_;
-
-    static float                scale_;
 
 public:
     QString                     label_;
