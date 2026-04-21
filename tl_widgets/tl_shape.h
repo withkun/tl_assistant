@@ -88,7 +88,7 @@ public:
     QPointF scale_point(const QPointF &point);
     void setShapeRefined(const QString &shape_type, const QList<QPointF> &points, const QList<int32_t> &point_labels, const cv::Mat &mask=cv::Mat());
     void restoreShapeRaw();
-    QString shape_type() const;
+    [[nodiscard]] QString shape_type() const;
     void shape_type(QString value);
     void close();
     void addPoint(const QPointF &point, int32_t label=1);
@@ -104,21 +104,21 @@ public:
     int32_t nearestVertex(QPointF point, float epsilon);
     int32_t nearestEdge(QPointF point, float epsilon);
     bool containsPoint(QPointF point);
-    QPainterPath makePath() const;
-    QRectF boundingRect() const;
+    [[nodiscard]] QPainterPath makePath() const;
+    [[nodiscard]] QRectF boundingRect() const;
     void moveBy(const QPointF &offset);
     void moveVertex(int32_t i, const QPointF &pos);
     void highlightVertex(int32_t i, int32_t action);
     void highlightClear();
-    TlShape copy() const;
+    [[nodiscard]] TlShape copy() const;
 
-    QString key() const;
+    [[nodiscard]] QString key() const;
 
     TlShape(const TlShape &shape);
     void SetValue(const TlShape &shape);
 
-    TlShape clone() const;
-    int32_t len() const;
+    [[nodiscard]] TlShape clone() const;
+    [[nodiscard]] int32_t len() const;
     void clear();
 
     QPointF &operator[](int32_t index);

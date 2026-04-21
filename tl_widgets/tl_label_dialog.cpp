@@ -39,21 +39,21 @@ LabelDialog::LabelDialog(QWidget *parent,
         fit_to_content_ = fit_to_content;
     }
 
-    edit_ = new LabelLineEdit();
+    edit_ = new LabelLineEdit;
     edit_->setPlaceholderText("Enter object label");
     edit_->setValidator(utils::labelValidator());
     QObject::connect(edit_, &LabelLineEdit::editingFinished, this, &LabelDialog::postProcess);
     if (!flags.isEmpty()) {
         QObject::connect(edit_, &LabelLineEdit::textChanged, this, &LabelDialog::updateFlags);
     }
-    edit_group_id_ = new QLineEdit();
+    edit_group_id_ = new QLineEdit;
     edit_group_id_->setPlaceholderText("Group ID");
     edit_group_id_->setValidator(
         new QRegularExpressionValidator(QRegularExpression("\\d*"))
     );
-    auto *layout = new QVBoxLayout();
+    auto *layout = new QVBoxLayout;
     if (show_text_field) {
-        auto layout_edit = new QHBoxLayout();
+        auto layout_edit = new QHBoxLayout;
         layout_edit->addWidget(edit_, 6);
         layout_edit->addWidget(edit_group_id_, 2);
         layout->addLayout(layout_edit);
@@ -68,7 +68,7 @@ LabelDialog::LabelDialog(QWidget *parent,
     QObject::connect(buttonBox_, &QDialogButtonBox::rejected, this, &LabelDialog::reject);
     layout->addWidget(buttonBox_);
     // label_list
-    labelList_ = new QListWidget();
+    labelList_ = new QListWidget;
     if (fit_to_content_["row"]) {
         labelList_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     }
@@ -89,26 +89,26 @@ LabelDialog::LabelDialog(QWidget *parent,
     labelList_->setFixedHeight(150);
     edit_->setListWidget(labelList_);
     layout->addWidget(labelList_);
-    // label_flags
+    //label_flags
     //if (flags.isEmpty())
     //    flags = {};
     flags_ = flags;
-    flagsLayout_ = new QVBoxLayout();
+    flagsLayout_ = new QVBoxLayout;
     resetFlags();
     layout->addItem(flagsLayout_);
     QObject::connect(edit_, &LabelLineEdit::textChanged, this, &LabelDialog::updateFlags);
     // text edit
-    editDescription_ = new QTextEdit();
+    editDescription_ = new QTextEdit;
     editDescription_->setPlaceholderText("Label description");
     editDescription_->setFixedHeight(50);
     layout->addWidget(editDescription_);
     setLayout(layout);
     // completion
-    auto completer = new QCompleter();
+    auto *completer = new QCompleter;  // 自动补全
     if (completion == "startswith") {
         completer->setCompletionMode(QCompleter::InlineCompletion);
-        // Default settings.
-        // completer->setFilterMode(Qt::MatchStartsWith);
+        //Default settings.
+        //completer->setFilterMode(Qt::MatchStartsWith);
     } else if (completion == "contains") {
         completer->setCompletionMode(QCompleter::PopupCompletion);
         completer->setFilterMode(Qt::MatchContains);
@@ -289,6 +289,6 @@ popUp(
             editDescription_->toPlainText()
         );
     } else {
-        return std::make_tuple(QString(""), QMap<QString, bool>{}, -1, QString(""));
+        return std::make_tuple(QString(""), QMap<QString, bool>{}, None, QString(""));
     }
 }

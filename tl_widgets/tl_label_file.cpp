@@ -297,7 +297,7 @@ void TlLabelFile::save(const QString &filename,
     std::vector<TlShape> pnt_list(shapes.begin(), shapes.end());
 
     nlohmann::ordered_json data;
-    data["version"]     = "1.0.0.1";
+    data["version"]     = "5.11.4";
 
     data["flags"]       = nlohmann::json({}); //flags;
     data["shapes"]      = pnt_list;

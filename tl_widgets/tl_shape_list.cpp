@@ -155,6 +155,7 @@ QList<ShapeListItem *> ShapeListView::items() const {
     }
     return items;
 }
+
 //void TlShapeList::__getitem__(i) {
 //}
 

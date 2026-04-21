@@ -825,10 +825,10 @@ void Canvas::selectShapePoint(const QPointF &point, bool multiple_selection_mode
 }
 
 void Canvas::calculateOffsets(const QPointF &point) {
-    auto left = pixmap_.width() - 1;
-    auto right = 0;
-    auto top = pixmap_.height() - 1;
-    auto bottom = 0;
+    double left   = pixmap_.width() - 1.;
+    double right  = 0.;
+    double top    = pixmap_.height() - 1.;
+    double bottom = 0.;
     for (const auto &idx : selectedShapes_) {
         auto rect = shapes_[idx].boundingRect();
         if (rect.left() < left) {
@@ -844,10 +844,10 @@ void Canvas::calculateOffsets(const QPointF &point) {
             bottom = rect.bottom();
         }
     }
-    auto x1 = left - point.x();
-    auto y1 = top - point.y();
-    auto x2 = right - point.x();
-    auto y2 = bottom - point.y();
+    const double x1 = left   - point.x();
+    const double y1 = top    - point.y();
+    const double x2 = right  - point.x();
+    const double y2 = bottom - point.y();
     offsets_ = { QPointF(x1, y1), QPointF(x2, y2) };
 }
 

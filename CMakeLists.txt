@@ -65,8 +65,13 @@ set(TL_SOURCES
     config/tl_yaml_config.h
     config/tl_yaml_config.cpp
     tl_widgets/base64.h
+    tl_widgets/numpy_utils.h
+    tl_widgets/image_enhance.h
+    tl_widgets/image_enhance.cpp
     tl_widgets/shape_to_json.h
     tl_widgets/shape_to_json.cpp
+    tl_widgets/status_stats.h
+    tl_widgets/status_stats.cpp
     tl_widgets/tl_canvas.h
     tl_widgets/tl_canvas.cpp
     tl_widgets/tl_label_list.h
@@ -94,11 +99,6 @@ set(TL_SOURCES
     tl_widgets/tl_train_widget.cpp
     tl_widgets/zoom_widget.h
     tl_widgets/zoom_widget.cpp
-    tl_widgets/status_stats.h
-    tl_widgets/status_stats.cpp
-    tl_widgets/numpy_utils.h
-    tl_widgets/image_enhance.h
-    tl_widgets/image_enhance.cpp
 )
 
 set(AI_SOURCES

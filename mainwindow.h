@@ -61,8 +61,6 @@ private slots:
 
 private:
     Ui::MainWindow                                 *ui_{nullptr};
-    TlToolBar                                      *tool_bar_{nullptr};
-    QToolBar                                       *tool_bar_ex_{nullptr};
     QLabel                                         *message_{nullptr};
     QLabel                                         *stats_{nullptr};
 
@@ -116,17 +114,12 @@ private:
     std::string                                     sam_model_name_{"efficientsam:latest"};
     std::unique_ptr<SamSession>                     text_osam_session_{nullptr};
 
-    QAction                                        *actSetup_{nullptr};
-    QAction                                        *actTrain_{nullptr};
-    QAction                                        *actInfer_{nullptr};
-
     AiAssistAnnotation                             *ai_assisted_annotation_widget_{nullptr};
     AiPromptAnnotation                             *ai_text_to_annotation_widget_{nullptr};
     QWidgetAction                                  *select_ai_model_{nullptr};
     QWidgetAction                                  *ai_prompt_action_{nullptr};
     QProgressDialog                                *progress_dialog_{nullptr};
 
-    std::list<QAction *>                            actions_;
     std::list<QAction *>                            on_shapes_present_actions_;
     std::list<std::pair<QString, QAction *>>        draw_actions_;
     std::list<QAction *>                            zoom_actions_;
@@ -141,6 +134,9 @@ private:
     QMenu                                          *recent_menu_{nullptr};
     QMenu                                          *label_menu_{nullptr};
 
+    //QAction                                        *actSetup_{nullptr};
+    //QAction                                        *actTrain_{nullptr};
+    //QAction                                        *actInfer_{nullptr};
     TlTrainWidget                                  *train_widget_{nullptr};
     QProcess                                       *sub_process_;
 

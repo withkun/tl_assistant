@@ -115,16 +115,16 @@ MainWindow::MainWindow(const QString &config_file,
 
     this->setup_actions();
     this->scalers_ = {
-        { ZoomMode::FIT_WINDOW, [this]() { return scaleFitWindow(); } },
-        { ZoomMode::FIT_WIDTH, [this]() { return scaleFitWidth(); } },
-        { ZoomMode::MANUAL_ZOOM, []() { return 1.; } }
+        { ZoomMode::FIT_WINDOW, [this] { return scaleFitWindow(); } },
+        { ZoomMode::FIT_WIDTH, [this] { return scaleFitWidth(); } },
+        { ZoomMode::MANUAL_ZOOM, [this] { return 1.; } }
     };
     this->setup_menus();
 
     ai_assisted_annotation_widget_ = new AiAssistAnnotation(appConfig.ai_assist_name_, [this](const std::string &name){ this->canvas_->set_ai_model_name(name); }, this);
     ai_assisted_annotation_widget_->setEnabled(false);
 
-    ai_text_to_annotation_widget_ = new AiPromptAnnotation(appConfig.ai_prompt_name_, [this](){ submit_ai_prompt(); }, this);
+    ai_text_to_annotation_widget_ = new AiPromptAnnotation(appConfig.ai_prompt_name_, [this] { submit_ai_prompt(); }, this);
     ai_text_to_annotation_widget_->setEnabled(false);
 
     this->setup_toolbars();
@@ -171,7 +171,7 @@ void MainWindow::setup_actions() {
         tr("&Open\n"), &MainWindow::open_file_with_dialog, shortcuts("open"), ":/icons/folder-open.svg", tr("Open image or label file"), false, true, false
     );
     open_dir_ = action(
-        tr("Open Dir"), [this]() { open_dir_with_dialog(); }, shortcuts("open_dir"), ":/icons/folder-open.svg", tr("Open Dir"), false, true, false
+        tr("Open Dir"), [this] { open_dir_with_dialog(); }, shortcuts("open_dir"), ":/icons/folder-open.svg", tr("Open Dir"), false, true, false
     );
     close_ = action(
         tr("&Close"), &MainWindow::closeFile, shortcuts("close"), ":/icons/x-circle.svg", tr("Close current file"), false, true, false
@@ -185,7 +185,7 @@ void MainWindow::setup_actions() {
     toggle_keep_prev_mode_->setChecked(config_["keep_prev"].as<bool>());
     toggle_keep_prev_brightness_contrast_ = action(
         tr("Keep Previous Brightness/Contrast"),
-        [this]() { config_["keep_prev_brightness_contrast"] = !config_["keep_prev_brightness_contrast"].as<bool>(); },
+        [this] { config_["keep_prev_brightness_contrast"] = !config_["keep_prev_brightness_contrast"].as<bool>(); },
         {}, ":/icons/question.svg", tr("Show about page"), true, true,
         config_["keep_prev_brightness_contrast"].as<bool>()
     );
@@ -205,7 +205,7 @@ void MainWindow::setup_actions() {
         tr("Paste Shapes"), &MainWindow::pasteSelectedShape, shortcuts("paste_shape"), ":/icons/paste.svg", tr("Paste copied shapes"), false, false, false
     );
     undo_last_point_ = action(
-        tr("Undo last point"), &Canvas::undoLastPoint, shortcuts("undo_last_point"), ":/icons/arrow-u-up-left.svg", tr("Undo last drawn point"), false, false, false
+        tr("Undo last point"), [this] { canvas_->undoLastPoint(); }, shortcuts("undo_last_point"), ":/icons/arrow-u-up-left.svg", tr("Undo last drawn point"), false, false, false
     );
     undo_ = action(
         tr("Undo\n"), &MainWindow::undoShapeEdit, shortcuts("undo"), ":/icons/arrow-u-up-left.svg", tr("Undo last add and edit of shape"), false, false, false
@@ -214,31 +214,31 @@ void MainWindow::setup_actions() {
         tr("Remove Selected Point"), &MainWindow::removeSelectedPoint, shortcuts("remove_selected_point"), ":/icons/trash.svg", tr("Remove selected point from polygon"), false, false, false
     );
     create_mode_ = action(
-        tr("Create Polygons"), [this]() { this->switch_canvas_mode(false, "polygon"); }, shortcuts("create_polygon"), ":/icons/polygon.svg", tr("Start drawing polygons"), false, false, false
+        tr("Create Polygons"), [this] { this->switch_canvas_mode(false, "polygon"); }, shortcuts("create_polygon"), ":/icons/polygon.svg", tr("Start drawing polygons"), false, false, false
     );
     edit_mode_ = action(
-        tr("Edit Shapes"), [this]() { this->switch_canvas_mode(true); }, shortcuts("edit_shape"), ":/icons/note-pencil.svg", tr("Move and edit the selected shapes"), false, false, false
+        tr("Edit Shapes"), [this] { this->switch_canvas_mode(true); }, shortcuts("edit_shape"), ":/icons/note-pencil.svg", tr("Move and edit the selected shapes"), false, false, false
     );
     create_rectangle_mode_ = action(
-        tr("Create Rectangle"), [this]() { this->switch_canvas_mode(false, "rectangle"); }, shortcuts("create_rectangle"), ":/icons/rectangle.svg", tr("Start drawing rectangles"), false, false, false
+        tr("Create Rectangle"), [this] { this->switch_canvas_mode(false, "rectangle"); }, shortcuts("create_rectangle"), ":/icons/rectangle.svg", tr("Start drawing rectangles"), false, false, false
     );
     create_circle_mode_ = action(
-        tr("Create Circle"), [this]() { this->switch_canvas_mode(false, "circle"); }, shortcuts("create_circle"), ":/icons/circle.svg", tr("Start drawing circles"), false, false, false
+        tr("Create Circle"), [this] { this->switch_canvas_mode(false, "circle"); }, shortcuts("create_circle"), ":/icons/circle.svg", tr("Start drawing circles"), false, false, false
     );
     create_line_mode_ = action(
-        tr("Create Line"), [this]() { this->switch_canvas_mode(false, "line"); }, shortcuts("create_line"), ":/icons/line-segment.svg", tr("Start drawing lines"), false, false, false
+        tr("Create Line"), [this] { this->switch_canvas_mode(false, "line"); }, shortcuts("create_line"), ":/icons/line-segment.svg", tr("Start drawing lines"), false, false, false
     );
     create_point_mode_ = action(
-        tr("Create Point"), [this]() { this->switch_canvas_mode(false, "point"); }, shortcuts("create_point"), ":/icons/circles-four.svg", tr("Start drawing points"), false, false, false
+        tr("Create Point"), [this] { this->switch_canvas_mode(false, "point"); }, shortcuts("create_point"), ":/icons/circles-four.svg", tr("Start drawing points"), false, false, false
     );
     create_line_strip_mode_ = action(
-        tr("Create LineStrip"), [this]() { this->switch_canvas_mode(false, "linestrip"); }, shortcuts("create_linestrip"), ":/icons/line-segments.svg", tr("Start drawing linestrip. Ctrl+LeftClick ends creation."), false, false, false
+        tr("Create LineStrip"), [this] { this->switch_canvas_mode(false, "linestrip"); }, shortcuts("create_linestrip"), ":/icons/line-segments.svg", tr("Start drawing linestrip. Ctrl+LeftClick ends creation."), false, false, false
     );
     create_ai_polygon_mode_ = action(
-        tr("Create AI-Polygon"), [this]() { this->switch_canvas_mode(false, "ai_polygon"); }, shortcuts("create_ai_polygon"), ":/icons/ai-polygon.svg", tr("Start drawing ai_polygon. Ctrl+LeftClick ends creation."), false, false, false
+        tr("Create AI-Polygon"), [this] { this->switch_canvas_mode(false, "ai_polygon"); }, shortcuts("create_ai_polygon"), ":/icons/ai-polygon.svg", tr("Start drawing ai_polygon. Ctrl+LeftClick ends creation."), false, false, false
     );
     create_ai_mask_mode_ = action(
-        tr("Create AI-Mask"), [this]() { this->switch_canvas_mode(false, "ai_mask"); }, shortcuts("create_ai_mask"), ":/icons/ai-mask.svg", tr("Start drawing ai_mask. Ctrl+LeftClick ends creation."), false, false, false
+        tr("Create AI-Mask"), [this] { this->switch_canvas_mode(false, "ai_mask"); }, shortcuts("create_ai_mask"), ":/icons/ai-mask.svg", tr("Start drawing ai_mask. Ctrl+LeftClick ends creation."), false, false, false
     );
     open_next_img_ = action(
         tr("&Next Image"), &MainWindow::open_next_image, shortcuts("open_next"), ":/icons/arrow-fat-right.svg", tr("Open next (hold Ctl+Shift to copy labels)"), false, false, false
@@ -256,13 +256,13 @@ void MainWindow::setup_actions() {
         tr("Fit &Width"), &MainWindow::setFitWidth, shortcuts("fit_width"), ":/icons/frame-arrows-horizontal.svg", tr("Zoom follows window width"), true, false, false
     );
     brightness_contrast_ = action(
-        tr("&Brightness Contrast"), [this]() { brightnessContrast(); }, {}, ":/icons/brightness-contrast.svg", tr("Adjust brightness and contrast"), false, false, false
+        tr("&Brightness Contrast"), [this] { brightnessContrast(); }, {}, ":/icons/brightness-contrast.svg", tr("Adjust brightness and contrast"), false, false, false
     );
     zoom_in_ = action(
-        tr("Zoom &In"), [this]() { add_zoom(1.1); }, shortcuts("zoom_in"), ":/icons/magnifying-glass-minus.svg", tr("Increase zoom level"), false, false, false
+        tr("Zoom &In"), [this] { add_zoom(1.1); }, shortcuts("zoom_in"), ":/icons/magnifying-glass-minus.svg", tr("Increase zoom level"), false, false, false
     );
     zoom_out_ = action(
-        tr("&Zoom Out"), [this]() { add_zoom(0.9); }, shortcuts("zoom_out"), ":/icons/magnifying-glass-plus.svg", tr("Decrease zoom level"), false, false, false
+        tr("&Zoom Out"), [this] { add_zoom(0.9); }, shortcuts("zoom_out"), ":/icons/magnifying-glass-plus.svg", tr("Decrease zoom level"), false, false, false
     );
     zoom_org_ = action(
         tr("&Original size"), &MainWindow::set_zoom_to_original, shortcuts("zoom_to_original"), ":/icons/image-square.svg", tr("Zoom to original size"), false, false, false
@@ -277,13 +277,13 @@ void MainWindow::setup_actions() {
         fill_drawing_->trigger();
     }
     hide_all_ = action(
-        tr("&Hide\nShapes"), [this]() { toggleShapes(false); }, shortcuts("hide_all_shapes"), ":/icons/eye.svg", tr("Hide all shapes"), false, false, false
+        tr("&Hide\nShapes"), [this] { toggleShapes(false); }, shortcuts("hide_all_shapes"), ":/icons/eye.svg", tr("Hide all shapes"), false, false, false
     );
     show_all_ = action(
-        tr("&Show\nShapes"), [this]() { toggleShapes(true); }, shortcuts("show_all_shapes"), ":/icons/eye.svg", tr("Show all shapes"), false, false, false
+        tr("&Show\nShapes"), [this] { toggleShapes(true); }, shortcuts("show_all_shapes"), ":/icons/eye.svg", tr("Show all shapes"), false, false, false
     );
     toggle_all_ = action(
-        tr("&Toggle\nShapes"), [this]() { toggleShapes(None); }, shortcuts("toggle_all_shapes"), ":/icons/eye.svg", tr("Toggle all shapes"), false, false, false
+        tr("&Toggle\nShapes"), [this] { toggleShapes(None); }, shortcuts("toggle_all_shapes"), ":/icons/eye.svg", tr("Toggle all shapes"), false, false, false
     );
 
     zoom_action_ = new QWidgetAction(this);
@@ -516,8 +516,8 @@ void MainWindow::setup_menus() {
     utils::addActions(
         canvas_->menus_[1],
         {
-            action("&Copy here", [this]() { this->copyShape(); }),
-            action("&Move here", [this]() { this->moveShape(); }),
+            action("&Copy here", [this] { this->copyShape(); }),
+            action("&Move here", [this] { this->moveShape(); }),
         }
     );
 
