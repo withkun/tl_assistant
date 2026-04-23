@@ -133,6 +133,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>tl assistant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Flags</source>
         <translation type="unfinished"></translation>
     </message>

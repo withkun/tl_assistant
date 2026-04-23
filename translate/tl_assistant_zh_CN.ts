@@ -133,6 +133,10 @@
 <context>
     <name>MainWindow</name>
     <message>
+        <source>tl assistant</source>
+        <translation>瞳乐辅注工具</translation>
+    </message>
+    <message>
         <source>Flags</source>
         <translation>标记</translation>
     </message>

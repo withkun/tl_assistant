@@ -46,7 +46,7 @@ add_subdirectory(deps/yaml-cpp-0.9.0)
 add_subdirectory(deps/zlib-1.3.2)
 
 set(deps_libraries
-    gflags nlohmann_json spdlog::spdlog_header_only yaml-cpp zlib
+    gflags nlohmann_json spdlog::spdlog_header_only yaml-cpp zlibstatic
 )
 
 ################################################################################
@@ -155,7 +155,7 @@ set(PROJECT_SOURCES
     main.cpp
 )
 
-qt_add_executable(${PROJECT_NAME}
+qt_add_executable(${PROJECT_NAME} WIN32
     MANUAL_FINALIZATION
 
     ${TL_SOURCES}
@@ -214,6 +214,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
+    PDB_OUTPUT_DIRECTORY     "${CMAKE_CURRENT_BINARY_DIR}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build-relwithdebinfo"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build-relwithdebinfo"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build-relwithdebinfo"

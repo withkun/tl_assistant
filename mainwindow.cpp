@@ -71,7 +71,7 @@ MainWindow::MainWindow(const QString &config_file,
                        const QString &output_dir)
     : QMainWindow(), ui_(new Ui::MainWindow), settings_("tl_assistant", "tl_assistant") {
     ui_->setupUi(this);
-    this->setWindowTitle(qAppName());
+    this->setWindowTitle(tr("tl assistant"));
 
     AppConfig &appConfig = AppConfig::instance();
     this->config_file_ = this->load_config(config_file, config_overrides);
@@ -827,7 +827,7 @@ void MainWindow::populateModeActions() {
 }
 
 QString MainWindow::get_window_title(bool dirty) {
-    QString window_title = qAppName();
+    QString window_title = tr("tl assistant");
     if (!image_path_.isEmpty()) {
         window_title = QString("%1 - %2").arg(window_title, image_path_);
         if (files_list_->count() && files_list_->currentItem())

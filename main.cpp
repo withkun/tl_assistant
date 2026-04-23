@@ -20,7 +20,7 @@
 #include "gflags/gflags.h"
 
 
-DEFINE_bool(log_console, true, "show log console");
+DEFINE_bool(console, true, "show log console");
 DEFINE_string(app_config, "app_config.json", "app config");
 
 DEFINE_string(file_name, "", "file name for open");
@@ -36,7 +36,7 @@ static void slogInit() {
         const std::string logFile("tl_assistant.log");
         sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, 50*1024*1024, 100, false));
         // 控制台日志console_sink
-        if (FLAGS_log_console) {
+        if (FLAGS_console) {
             sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
         }
     } catch (const spdlog::spdlog_ex &ex) {
@@ -83,6 +83,8 @@ void qMessageHandler(QtMsgType type, const QMessageLogContext &context, const QS
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
 
+    // 解析命令行参数
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
     AppConfig &appConfig = AppConfig::instance();
     appConfig.load();
 
