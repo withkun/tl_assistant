@@ -2,6 +2,7 @@
 #include "polygon_from_mask.h"
 
 #include <future>
+#include <ranges>
 #include <QApplication>
 
 
@@ -164,10 +165,10 @@ QList<TlShape> get_shapes_from_texts(
     const GenerateResponse response = future.get();
 
     QList<TlShape> shapes;
-    for (const auto &annotation : response.annotations) {
+    for (const auto &&[index, annotation] : response.annotations | std::views::enumerate) {
         shapes.push_back({});
         auto &shape = shapes.back();
-        shape.label_ = QString::fromStdString(texts[0]);
+        shape.label_ = QString("%1_%2").arg(texts[0]).arg(100+index, 3, 10, '0');
         shape.close();
         if (annotation.mask.empty()) {
             shape.shape_type_ = "rectangle";

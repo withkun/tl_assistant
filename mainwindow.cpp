@@ -271,7 +271,7 @@ void MainWindow::setup_actions() {
         tr("Reset Layout"), &MainWindow::reset_layout, {}, ":/icons/layout-duotone.svg", "", false, false, false
     );
     fill_drawing_ = action(
-        tr("Fill Drawing Polygon"), &Canvas::setFillDrawing, {}, ":/icons/paint-bucket.svg", tr("Fill polygon while drawing"), true, true, false
+        tr("Fill Drawing Polygon"), [this] { canvas_->setFillDrawing(fill_drawing_->isChecked()); }, {}, ":/icons/paint-bucket.svg", tr("Fill polygon while drawing"), true, true, false
     );
     if (config_["canvas"]["fill_drawing"].as<bool>()) {
         fill_drawing_->trigger();

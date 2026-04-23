@@ -57,7 +57,7 @@ void AiPromptAnnotation::init_ui(const std::string &default_model, const std::fu
     grid->setSpacing(2);
 
     text_input_ = new QLineEdit();
-    text_input_->setPlaceholderText(tr("e.g., dog,cat,bird"));
+    text_input_->setPlaceholderText("e.g., dog,cat,bird");
     text_input_->setFixedHeight(24);
     grid->addWidget(text_input_, 0, 0);
 

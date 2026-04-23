@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 4.1)
 project(tl_assistant LANGUAGES C CXX)
 enable_language(C CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -36,7 +36,7 @@ set(CMAKE_CUDA_ARCHITECTURES 86)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-set(ONNX_RUNTIME_ROOT d:/3rd_party/ONNXRuntime-win-x64-gpu-1.24.1)
+set(ONNX_RUNTIME_ROOT d:/3rd_party/ONNXRuntime-win-x64-gpu-1.25.0)
 
 ################################################################################
 add_subdirectory(deps/gflags-2.3.0)
@@ -177,7 +177,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/tl_modules
     ${CMAKE_CURRENT_SOURCE_DIR}/tl_widgets
-    ${CUDA_TOOLKIT_ROOT_DIR}/include
+    ${CUDA_SDK_ROOT_DIR}/include
     ${ONNX_RUNTIME_ROOT}/include
     ${OpenCV_INCLUDE_DIRS}
     ${SPDLOG_INCLUDE_DIR}
@@ -199,7 +199,7 @@ target_link_options(${PROJECT_NAME} PRIVATE
 )
 
 target_link_directories(${PROJECT_NAME} PRIVATE
-    ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
+    ${CUDA_SDK_ROOT_DIR}/lib/x64
     ${ONNX_RUNTIME_ROOT}/lib
 )
 
