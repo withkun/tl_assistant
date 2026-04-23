@@ -2,6 +2,7 @@
 
 #include <Shlobj.h>
 #include <filesystem>
+#include <QCoreApplication>
 #include "spdlog/spdlog.h"
 
 
@@ -22,6 +23,17 @@ std::string Blob::filename() const {
 }
 
 std::string Blob::path() const {
+    // 先判断应用进程目录下是否存在models目录, 如果存在则从进程目录获取模型.
+    const QString appDirPath = QCoreApplication::applicationDirPath();
+    std::filesystem::path exe_directory{appDirPath.toLocal8Bit().constData()};
+    exe_directory /= "models";
+    if (exists(exe_directory)) {
+        exe_directory /= filename();
+        const std::string path = absolute(exe_directory).string();
+        SPDLOG_INFO("===> path: {}", path);
+        return path;
+    }
+
     //const auto blobPath = QDir::homePath() + "/.cache/osam/models/blobs/";
     TCHAR szPath[1024]{};
     SHGetSpecialFolderPath(nullptr, szPath, CSIDL_PROFILE, 0);
