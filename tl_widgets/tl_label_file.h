@@ -16,14 +16,19 @@ public:
     QMap<QString, QString>  other_data;
 };
 
+class OSError : public std::exception {
+public:
+    OSError() {};
+};
+
 class LabelFileError : public std::exception {
-  public:
+public:
     LabelFileError() {};
 };
 
-class TlLabelFile : public QObject {
+class LabelFile : public QObject {
 public:
-    explicit TlLabelFile(const QString &filename = "");
+    explicit LabelFile(const QString &filename = "");
 
     static QString suffix;
 

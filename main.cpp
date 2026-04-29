@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
 
     QLocale locale;
     QTranslator translator;
-    qInfo() << translator.load(":/i18n/tl_assistant_zh_CN.qm", ":/i18n/");
+    qInfo() << translator.load(":/i18n/zh_CN.qm", ":/i18n/");
     a.installTranslator(&translator);
 
     qInfo() << QStyleFactory::keys();

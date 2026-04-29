@@ -8,16 +8,16 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>AI suggests annotation in &apos;AI-Polygon&apos; and &apos;AI-Mask&apos; modes</source>
+        <source>AI suggests annotation in &apos;AI-Points&apos; and &apos;AI-Box&apos; modes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Select &apos;AI-Polygon&apos; or &apos;AI-Mask&apos; mode to enable AI-Assisted Annotation</source>
+        <source>Select &apos;AI-Points&apos; or &apos;AI-Box&apos; mode to enable AI-Assisted Annotation</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
-    <name>AiPromptAnnotation</name>
+    <name>AiTextToAnnotation</name>
     <message>
         <source>AI Text-to-Annotation</source>
         <translation type="unfinished"></translation>
@@ -43,7 +43,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, &apos;AI-Polygon&apos;, or &apos;AI-Mask&apos; mode to enable</source>
+        <source>Select &apos;Polygon&apos;, &apos;Rectangle&apos;, or &apos;AI-Points&apos; mode to enable</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>BrightnessContrastDialog</name>
+    <message>
+        <source>Brightness/Contrast</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -71,14 +78,6 @@
     </message>
     <message>
         <source>Editing shapes</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Click points to include or Shift+Click to exclude for ai_polygon</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Click points to include or Shift+Click to exclude for ai_mask</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -129,13 +128,21 @@
         <source>Click opposite corner for rectangle (Shift for square)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Click points to include or Shift+Click to exclude. Ctrl+LeftClick ends creation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click first corner of bbox for AI segmentation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click opposite corner to segment object</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
-    <message>
-        <source>tl assistant</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>Flags</source>
         <translation type="unfinished"></translation>
@@ -186,7 +193,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open next (hold Ctl+Shift to copy labels)</source>
+        <source>Open next (hold Ctrl+Shift to copy labels)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -194,7 +201,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open prev (hold Ctl+Shift to copy labels)</source>
+        <source>Open prev (hold Ctrl+Shift to copy labels)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -259,19 +266,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Toggle &quot;keep pevious annotation&quot; mode</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Create Polygons</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Start drawing polygons</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Create Rectangle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -279,15 +274,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Create Circle</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Start drawing circles</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Create Line</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -295,35 +282,11 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Create Point</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Start drawing points</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Create LineStrip</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Start drawing linestrip. Ctrl+LeftClick ends creation.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Create AI-Polygon</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Start drawing ai_polygon. Ctrl+LeftClick ends creation.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Create AI-Mask</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Start drawing ai_mask. Ctrl+LeftClick ends creation.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -431,7 +394,7 @@ Shapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Zoom in or out of the image. Also accessible with %1 and %2 from the canvas.</source>
+        <source>Zoom in or out of the image. Also accessible with %1 %2 and %3 from the canvas.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -527,15 +490,7 @@ Shapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open &amp;Recent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AI Model</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>%s started.</source>
+        <source>%1 started.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -543,7 +498,7 @@ Shapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Invalid label &apos;{}&apos; with validation type &apos;{}&apos;</source>
+        <source>Invalid label &apos;%1&apos; with validation type &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -551,7 +506,7 @@ Shapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;b&gt;%s&lt;/b&gt;</source>
+        <source>&lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -559,47 +514,47 @@ Shapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>No such file: &lt;b&gt;%s&lt;/b&gt;</source>
+        <source>No such file: &lt;b&gt;%1&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Loading %s...</source>
+        <source>Loading %1...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Error reading %s</source>
+        <source>Error reading %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;p&gt;Make sure &lt;i&gt;{0}&lt;/i&gt; is a valid image file.&lt;br/&gt;Supported image formats: {1}&lt;/p&gt;</source>
+        <source>&lt;p&gt;Make sure &lt;i&gt;%1&lt;/i&gt; is a valid image file.&lt;br/&gt;Supported image formats: %2&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Loaded %s</source>
+        <source>Loaded %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Image &amp; Label files (%s)</source>
+        <source>Image &amp; Label files (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%s - Choose Image or Label file</source>
+        <source>%1 - Choose Image or Label file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%s - Save/Load Annotations in Directory</source>
+        <source>%1 - Save/Load Annotations in Directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%s . Annotations will be saved/loaded in %s</source>
+        <source>%1 . Annotations will be saved/loaded in %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%s - Choose File</source>
+        <source>%1 - Choose File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Label files (*%s)</source>
+        <source>Label files (*%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -627,7 +582,7 @@ Shapes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>%s - Open Directory</source>
+        <source>%1 - Open Directory</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -666,15 +621,80 @@ To use the preferences editor, start Labelme with a config file:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid label file.&lt;/p&gt;</source>
+        <source>&lt;p&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%2&lt;/i&gt; is a valid label file.&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid image file.&lt;/p&gt;</source>
+        <source>&lt;p&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%2&lt;/i&gt; is a valid image file.&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Reset Layout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Polygon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Circle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Line</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Point</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>LineStrip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AI-Points</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click points to segment object. Ctrl+LeftClick ends creation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AI-Box</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Draw a bounding box to segment object.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AI-Points Unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 does not support point prompts.
+Please select a different model or use AI-Box mode.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File list is disabled when a label file is opened</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Point to Edge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Insert a new point at the hovered polygon edge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>tl assistant</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

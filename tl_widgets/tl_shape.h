@@ -78,31 +78,32 @@ private:
 
     int32_t                     highlightIndex_{None};
     int32_t                     highlightMode_{NEAR_VERTEX};
-    std::map<int32_t, std::pair<float, int32_t>> highlightSettings_;
+    std::map<int32_t, float>    highlight_sizes_;
+    std::map<int32_t, int32_t>  highlight_shapes_;
 
     bool                        closed_{false};
 
     QString                     uuid_;
 
 public:
-    QPointF scale_point(const QPointF &point);
+    QPointF scale_point(const QPointF &point) const;
     void setShapeRefined(const QString &shape_type, const QList<QPointF> &points, const QList<int32_t> &point_labels, const cv::Mat &mask=cv::Mat());
     void restoreShapeRaw();
     [[nodiscard]] QString shape_type() const;
     void shape_type(QString value);
     void close();
     void addPoint(const QPointF &point, int32_t label=1);
-    bool canAddPoint();
+    bool canAddPoint() const;
     QPointF popPoint();
     void insertPoint(int32_t i, const QPointF &point, int32_t label=1);
-    bool canRemovePoint();
+    bool canRemovePoint() const;
     void removePoint(int32_t i);
-    bool isClosed();
+    bool isClosed() const;
     void setOpen();
     void paint(QPainter &painter);
     void drawVertex(QPainterPath &path, int32_t i);
-    int32_t nearestVertex(QPointF point, float epsilon);
-    int32_t nearestEdge(QPointF point, float epsilon);
+    int32_t nearestVertex(QPointF point, float epsilon) const;
+    int32_t nearestEdge(QPointF point, float epsilon) const;
     bool containsPoint(QPointF point);
     [[nodiscard]] QPainterPath makePath() const;
     [[nodiscard]] QRectF boundingRect() const;
@@ -118,7 +119,7 @@ public:
     void SetValue(const TlShape &shape);
 
     [[nodiscard]] TlShape clone() const;
-    [[nodiscard]] int32_t len() const;
+    [[nodiscard]] int32_t size() const;
     void clear();
 
     QPointF &operator[](int32_t index);

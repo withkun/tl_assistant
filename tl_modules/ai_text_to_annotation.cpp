@@ -1,4 +1,4 @@
-#include "ai_prompt_annotation.h"
+#include "ai_text_to_annotation.h"
 #include "info_button.h"
 
 #include <QLabel>
@@ -20,15 +20,16 @@ constexpr float default_iou_threshold_ = 0.5;
 }
 
 
-AiPromptAnnotation::AiPromptAnnotation(const std::string &default_model, const std::function<void()> &on_submit, QWidget *parent)
-    : QWidget(parent) {
+AiTextToAnnotation::AiTextToAnnotation(const std::string &default_model,
+                                       const std::function<void()> &on_submit,
+                                       QWidget *parent) : QWidget(parent) {
     this->init_ui(default_model.empty() ? default_model_name_ : default_model, on_submit);
 }
 
-AiPromptAnnotation::~AiPromptAnnotation() {
+AiTextToAnnotation::~AiTextToAnnotation() {
 }
 
-void AiPromptAnnotation::init_ui(const std::string &default_model, const std::function<void()> &on_submit) {
+void AiTextToAnnotation::init_ui(const std::string &default_model, const std::function<void()> &on_submit) {
     auto *const layout = new QVBoxLayout();
     layout->setContentsMargins(4, 4, 4, 4);
     layout->setSpacing(2);
@@ -57,7 +58,7 @@ void AiPromptAnnotation::init_ui(const std::string &default_model, const std::fu
     grid->setSpacing(2);
 
     text_input_ = new QLineEdit();
-    text_input_->setPlaceholderText("e.g., dog,cat,bird");
+    text_input_->setPlaceholderText(tr("e.g., dog,cat,bird"));
     text_input_->setFixedHeight(24);
     grid->addWidget(text_input_, 0, 0);
 
@@ -117,37 +118,36 @@ void AiPromptAnnotation::init_ui(const std::string &default_model, const std::fu
     setMaximumWidth(320);
 }
 
-std::vector<std::string> AiPromptAnnotation::get_texts_prompt() const {
+std::vector<std::string> AiTextToAnnotation::get_texts_prompt() const {
     const auto items = text_input_->text().split(",");
     std::vector<std::string> prompt_texts;
     std::ranges::transform(items, std::back_inserter(prompt_texts), [](auto &s) { return s.toStdString(); });
     return prompt_texts;
 }
 
-std::string AiPromptAnnotation::get_model_name() const {
+std::string AiTextToAnnotation::get_model_name() const {
     return model_combo_->currentData().toString().toStdString();
 }
 
-float AiPromptAnnotation::get_score_threshold() {
+float AiTextToAnnotation::get_score_threshold() {
     return score_spinbox_->value();
 }
 
-float AiPromptAnnotation::get_iou_threshold() {
+float AiTextToAnnotation::get_iou_threshold() {
     return iou_spinbox_->value();
 }
 
-void AiPromptAnnotation::setEnabled(bool a0) {
+void AiTextToAnnotation::setEnabled(bool a0) {
     body_->setEnabled(a0);
 }
 
-bool AiPromptAnnotation::eventFilter(QObject *a0, QEvent *a1) {
+bool AiTextToAnnotation::eventFilter(QObject *a0, QEvent *a1) {
     if (a0 == body_ && !body_->isEnabled()) {
         if (a1->type() == QEvent::Enter) {
             QToolTip::showText(
                 QCursor::pos(),
                 tr(
-                    "Select 'Polygon', 'Rectangle', 'AI-Polygon', or 'AI-Mask' "
-                    "mode to enable"
+                    "Select 'Polygon', 'Rectangle', or 'AI-Points' mode to enable"
                 ),
                 body_
             );

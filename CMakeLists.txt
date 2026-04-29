@@ -136,12 +136,12 @@ set(AI_SOURCES
 
     tl_modules/info_button.h
     tl_modules/info_button.cpp
-    tl_modules/ai_prompt_annotation.h
-    tl_modules/ai_prompt_annotation.cpp
-    tl_modules/ai_assist_annotation.h
-    tl_modules/ai_assist_annotation.cpp
     tl_modules/ai_assist_thread.h
     tl_modules/ai_assist_thread.cpp
+    tl_modules/ai_assist_annotation.h
+    tl_modules/ai_assist_annotation.cpp
+    tl_modules/ai_text_to_annotation.h
+    tl_modules/ai_text_to_annotation.cpp
     tl_modules/bbox_from_text.h
     tl_modules/bbox_from_text.cpp
     tl_modules/polygon_from_mask.h
@@ -169,8 +169,8 @@ qt_add_executable(${PROJECT_NAME} WIN32
 configure_file(version.rc.in ${PROJECT_BINARY_DIR}/versionInfo.rc)
 
 qt_add_translations(${PROJECT_NAME} TS_FILES
-    translate/tl_assistant_zh_CN.ts
-    translate/tl_assistant_en_US.ts
+    translate/zh_CN.ts
+    translate/en_US.ts
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

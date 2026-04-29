@@ -13,6 +13,7 @@
 #include <QMenuBar>
 #include <QScrollBar>
 #include <QStatusBar>
+#include <QToolButton>
 #include <QMouseEvent>
 #include <QWidgetAction>
 #include <QMessageBox>
@@ -57,17 +58,19 @@ std::vector<QColor> label_colormap() {
 std::vector<QColor> LABEL_COLORMAP = label_colormap();
 
 
-const QMap<QString, QString> AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE {
-    { "ai_mask",    "mask"},
-    { "ai_polygon", "polygon"},
-    { "polygon",    "polygon"},
-    { "rectangle",  "rectangle"},
+const QList<QString> TextToAnnotationCreateMode { "polygon", "rectangle" };
+
+const QList<QString> AI_CREATE_MODES {
+    "ai_points_to_shape",
+    "ai_box_to_shape",
 };
+
+const QList<QString> AI_MODELS_WITHOUT_POINT_SUPPORT { "sam3:latest", };
 
 
 MainWindow::MainWindow(const QString &config_file,
                        const YAML::Node &config_overrides,
-                       const QString &file_name,
+                       const QString &file_or_dir,
                        const QString &output_dir)
     : QMainWindow(), ui_(new Ui::MainWindow), settings_("tl_assistant", "tl_assistant") {
     ui_->setupUi(this);
@@ -121,19 +124,24 @@ MainWindow::MainWindow(const QString &config_file,
     };
     this->setup_menus();
 
-    ai_assisted_annotation_widget_ = new AiAssistAnnotation(appConfig.ai_assist_name_, [this](const std::string &name){ this->canvas_->set_ai_model_name(name); }, this);
-    ai_assisted_annotation_widget_->setEnabled(false);
+    ai_assist_annotation_widget_ = new AiAssistAnnotation(
+        QString::fromStdString(appConfig.ai_assist_name_),
+        [this](const std::string &name){ this->canvas_->set_ai_model_name(name); },
+        [this](const std::string &name){ this->canvas_->set_ai_output_format(name); },
+        this
+    );
+    ai_assist_annotation_widget_->setEnabled(false);
 
-    ai_text_to_annotation_widget_ = new AiPromptAnnotation(appConfig.ai_prompt_name_, [this] { submit_ai_prompt(); }, this);
+    ai_text_to_annotation_widget_ = new AiTextToAnnotation(
+        appConfig.ai_prompt_name_, [this] { this->submit_ai_prompt(); }, this
+    );
     ai_text_to_annotation_widget_->setEnabled(false);
 
     this->setup_toolbars();
 
     this->setup_status_bar();
 
-    this->setup_app_state(output_dir, file_name);
-
-    this->updateFileMenu();
+    this->setup_app_state(file_or_dir, output_dir);
 
     QObject::connect(zoom_widget_, &ZoomWidget::valueChanged, this, &MainWindow::paint_canvas);
 
@@ -149,141 +157,224 @@ void MainWindow::setup_actions() {
     const auto shortcuts = [this](const std::string &key) { return YAML_KEYS(config_["shortcuts"][key]); };
 
     about_ = action(
-        tr("&About"), &MainWindow::about, {}, ":/icons/question.svg", tr("Show about page"), false, true, false
+        tr("&About"),
+        &MainWindow::about, {}, ":/icons/question.svg",
+        tr("Show about page"), false, true, false
     );
     save_ = action(
-        tr("&Save\n"), &MainWindow::saveFile, shortcuts("save"), ":/icons/floppy-disk.svg", tr("Save labels to file"), false, false, false
+        tr("&Save\n"),
+        &MainWindow::save_label_file, shortcuts("save"), ":/icons/floppy-disk.svg",
+        tr("Save labels to file"), false, false, false
     );
     save_as_ = action(
-        tr("&Save As"), &MainWindow::saveFileAs, shortcuts("save_as"), ":/icons/floppy-disk.svg", tr("Save labels to a different file"), false, false, false
+        tr("&Save As"),
+        [this](){ save_label_file(true); }, shortcuts("save_as"), ":/icons/floppy-disk.svg",
+        tr("Save labels to a different file"), false, false, false
     );
     save_auto_ = action(
-        tr("Save &Automatically"), [this](auto x) { save_auto_->setChecked(x); }, {}, ":/icons/save1.svg", tr("Save automatically"), true, true, false
+        tr("Save &Automatically"),
+        [this](auto x) { save_auto_->setChecked(x); }, {}, ":/icons/save1.svg",
+        tr("Save automatically"), true, true, false
     );
     save_auto_->setChecked(config_["auto_save"].as<bool>());
     save_with_image_data_ = action(
-        tr("Save With Image Data"), &MainWindow::enableSaveImageWithData, {}, ":/icons/icon-256.png", tr("Save image data in label file"), true, true, false
+        tr("Save With Image Data"),
+        &MainWindow::enableSaveImageWithData, {}, ":/icons/icon-256.png",
+        tr("Save image data in label file"), true, true, false
     );
     change_output_dir_ = action(
-        tr("&Change Output Dir"), &MainWindow::changeOutputDirDialog, shortcuts("save_to"), ":/icons/folders.svg", tr("Change where annotations are loaded/saved"), false, true, false
+        tr("&Change Output Dir"),
+        &MainWindow::changeOutputDirDialog, shortcuts("save_to"), ":/icons/folders.svg",
+        tr("Change where annotations are loaded/saved"), false, true, false
     );
     open_ = action(
-        tr("&Open\n"), &MainWindow::open_file_with_dialog, shortcuts("open"), ":/icons/folder-open.svg", tr("Open image or label file"), false, true, false
+        tr("&Open\n"),
+        &MainWindow::open_file_with_dialog, shortcuts("open"), ":/icons/folder-open.svg",
+        tr("Open image or label file"), false, true, false
     );
     open_dir_ = action(
-        tr("Open Dir"), [this] { open_dir_with_dialog(); }, shortcuts("open_dir"), ":/icons/folder-open.svg", tr("Open Dir"), false, true, false
+        tr("Open Dir"),
+        [this] { open_dir_with_dialog(); }, shortcuts("open_dir"), ":/icons/folder-open.svg",
+        tr("Open Dir"), false, true, false
     );
     close_ = action(
-        tr("&Close"), &MainWindow::closeFile, shortcuts("close"), ":/icons/x-circle.svg", tr("Close current file"), false, true, false
+        tr("&Close"),
+        &MainWindow::closeFile, shortcuts("close"), ":/icons/x-circle.svg",
+        tr("Close current file"), false, true, false
     );
     delete_file_ = action(
-        tr("&Delete File"), &MainWindow::deleteFile, shortcuts("delete_file"), ":/icons/file-x.svg", tr("Delete current label file"), false, false, false
+        tr("&Delete File"),
+        &MainWindow::deleteFile, shortcuts("delete_file"), ":/icons/file-x.svg",
+        tr("Delete current label file"), false, false, false
     );
     toggle_keep_prev_mode_ = action(
-        tr("Keep Previous Annotation"), &MainWindow::toggleKeepPrevMode, shortcuts("toggle_keep_prev_mode"), ":/icons/icon-256.png", tr("Toggle \"keep previous annotation\" mode"), true, true, false
+        tr("Keep Previous Annotation"),
+        &MainWindow::toggleKeepPrevMode, shortcuts("toggle_keep_prev_mode"), ":/icons/icon-256.png",
+        tr("Toggle \"keep previous annotation\" mode"), true, true, false
     );
     toggle_keep_prev_mode_->setChecked(config_["keep_prev"].as<bool>());
     toggle_keep_prev_brightness_contrast_ = action(
         tr("Keep Previous Brightness/Contrast"),
-        [this] { config_["keep_prev_brightness_contrast"] = !config_["keep_prev_brightness_contrast"].as<bool>(); },
-        {}, ":/icons/question.svg", tr("Show about page"), true, true,
-        config_["keep_prev_brightness_contrast"].as<bool>()
+        [this] { config_["keep_prev_brightness_contrast"] = !config_["keep_prev_brightness_contrast"].as<bool>(); }, {}, ":/icons/question.svg",
+        "", true, true, config_["keep_prev_brightness_contrast"].as<bool>()
     );
     delete_ = action(
-        tr("Delete Shapes"), &MainWindow::deleteSelectedShape, shortcuts("delete_shape"), ":/icons/trash.svg", tr("Delete the selected shapes"), false, false, false
+        tr("Delete Shapes"),
+        &MainWindow::deleteSelectedShape, shortcuts("delete_shape"), ":/icons/trash.svg",
+        tr("Delete the selected shapes"), false, false, false
     );
     edit_ = action(
-        tr("&Edit Label"), &MainWindow::edit_label, shortcuts("edit_label"), ":/icons/note-pencil.svg", tr("Modify the label of the selected shape"), false, false, false
+        tr("&Edit Label"),
+        &MainWindow::edit_label, shortcuts("edit_label"), ":/icons/note-pencil.svg",
+        tr("Modify the label of the selected shape"), false, false, false
     );
     duplicate_ = action(
-        tr("Duplicate Shapes"), &MainWindow::duplicateSelectedShape, shortcuts("duplicate_shape"), ":/icons/copy.svg", tr("Create a duplicate of the selected shapes"), false, false, false
+        tr("Duplicate Shapes"),
+        &MainWindow::duplicateSelectedShape, shortcuts("duplicate_shape"), ":/icons/copy.svg",
+        tr("Create a duplicate of the selected shapes"), false, false, false
     );
     copy_ = action(
-        tr("Copy Shapes"), &MainWindow::copySelectedShape, shortcuts("copy_shape"), ":/icons/copy_clipboard.svg", tr("Copy selected shapes to clipboard"), false, false, false
+        tr("Copy Shapes"),
+        &MainWindow::copySelectedShape, shortcuts("copy_shape"), ":/icons/copy_clipboard.svg",
+        tr("Copy selected shapes to clipboard"), false, false, false
     );
     paste_ = action(
-        tr("Paste Shapes"), &MainWindow::pasteSelectedShape, shortcuts("paste_shape"), ":/icons/paste.svg", tr("Paste copied shapes"), false, false, false
+        tr("Paste Shapes"),
+        &MainWindow::pasteSelectedShape, shortcuts("paste_shape"), ":/icons/paste.svg",
+        tr("Paste copied shapes"), false, false, false
     );
     undo_last_point_ = action(
-        tr("Undo last point"), [this] { canvas_->undoLastPoint(); }, shortcuts("undo_last_point"), ":/icons/arrow-u-up-left.svg", tr("Undo last drawn point"), false, false, false
+        tr("Undo last point"),
+        [this] { canvas_->undoLastPoint(); }, shortcuts("undo_last_point"), ":/icons/arrow-u-up-left.svg",
+        tr("Undo last drawn point"), false, false, false
     );
     undo_ = action(
-        tr("Undo\n"), &MainWindow::undoShapeEdit, shortcuts("undo"), ":/icons/arrow-u-up-left.svg", tr("Undo last add and edit of shape"), false, false, false
+        tr("Undo\n"),
+        &MainWindow::undoShapeEdit, shortcuts("undo"), ":/icons/arrow-u-up-left.svg",
+        tr("Undo last add and edit of shape"), false, false, false
     );
     remove_point_ = action(
-        tr("Remove Selected Point"), &MainWindow::removeSelectedPoint, shortcuts("remove_selected_point"), ":/icons/trash.svg", tr("Remove selected point from polygon"), false, false, false
+        tr("Remove Selected Point"),
+        &MainWindow::removeSelectedPoint, shortcuts("remove_selected_point"), ":/icons/trash.svg",
+        tr("Remove selected point from polygon"), false, false, false
     );
     create_mode_ = action(
-        tr("Create Polygons"), [this] { this->switch_canvas_mode(false, "polygon"); }, shortcuts("create_polygon"), ":/icons/polygon.svg", tr("Start drawing polygons"), false, false, false
+        tr("Polygon"),
+        [this] { this->switch_canvas_mode(false, "polygon"); }, shortcuts("create_polygon"), ":/icons/polygon.svg",
+        tr("Start drawing polygons"), false, false, false
     );
     edit_mode_ = action(
-        tr("Edit Shapes"), [this] { this->switch_canvas_mode(true); }, shortcuts("edit_shape"), ":/icons/note-pencil.svg", tr("Move and edit the selected shapes"), false, false, false
+        tr("Edit Shapes"),
+        [this] { this->switch_canvas_mode(true); }, shortcuts("edit_shape"), ":/icons/note-pencil.svg",
+        tr("Move and edit the selected shapes"), false, false, false
     );
     create_rectangle_mode_ = action(
-        tr("Create Rectangle"), [this] { this->switch_canvas_mode(false, "rectangle"); }, shortcuts("create_rectangle"), ":/icons/rectangle.svg", tr("Start drawing rectangles"), false, false, false
+        tr("Rectangle"),
+        [this] { this->switch_canvas_mode(false, "rectangle"); }, shortcuts("create_rectangle"), ":/icons/rectangle.svg",
+        tr("Start drawing rectangles"), false, false, false
     );
     create_circle_mode_ = action(
-        tr("Create Circle"), [this] { this->switch_canvas_mode(false, "circle"); }, shortcuts("create_circle"), ":/icons/circle.svg", tr("Start drawing circles"), false, false, false
+        tr("Circle"),
+        [this] { this->switch_canvas_mode(false, "circle"); }, shortcuts("create_circle"), ":/icons/circle.svg",
+        tr("Start drawing circles"), false, false, false
     );
     create_line_mode_ = action(
-        tr("Create Line"), [this] { this->switch_canvas_mode(false, "line"); }, shortcuts("create_line"), ":/icons/line-segment.svg", tr("Start drawing lines"), false, false, false
+        tr("Line"),
+        [this] { this->switch_canvas_mode(false, "line"); }, shortcuts("create_line"), ":/icons/line-segment.svg",
+        tr("Start drawing lines"), false, false, false
     );
     create_point_mode_ = action(
-        tr("Create Point"), [this] { this->switch_canvas_mode(false, "point"); }, shortcuts("create_point"), ":/icons/circles-four.svg", tr("Start drawing points"), false, false, false
+        tr("Point"),
+        [this] { this->switch_canvas_mode(false, "point"); }, shortcuts("create_point"), ":/icons/circles-four.svg",
+        tr("Start drawing points"), false, false, false
     );
     create_line_strip_mode_ = action(
-        tr("Create LineStrip"), [this] { this->switch_canvas_mode(false, "linestrip"); }, shortcuts("create_linestrip"), ":/icons/line-segments.svg", tr("Start drawing linestrip. Ctrl+LeftClick ends creation."), false, false, false
+        tr("LineStrip"),
+        [this] { this->switch_canvas_mode(false, "linestrip"); }, shortcuts("create_linestrip"), ":/icons/line-segments.svg",
+        tr("Start drawing linestrip. Ctrl+LeftClick ends creation."), false, false, false
     );
-    create_ai_polygon_mode_ = action(
-        tr("Create AI-Polygon"), [this] { this->switch_canvas_mode(false, "ai_polygon"); }, shortcuts("create_ai_polygon"), ":/icons/ai-polygon.svg", tr("Start drawing ai_polygon. Ctrl+LeftClick ends creation."), false, false, false
+    create_ai_points_to_shape_mode_ = action(
+        tr("AI-Points"),
+        [this] { this->switch_canvas_mode(false, "ai_points_to_shape"); }, shortcuts("create_ai_polygon"), ":/icons/ai-polygon.svg",
+        tr("Click points to segment object. Ctrl+LeftClick ends creation."), false, false, false
     );
-    create_ai_mask_mode_ = action(
-        tr("Create AI-Mask"), [this] { this->switch_canvas_mode(false, "ai_mask"); }, shortcuts("create_ai_mask"), ":/icons/ai-mask.svg", tr("Start drawing ai_mask. Ctrl+LeftClick ends creation."), false, false, false
+    create_ai_box_to_shape_mode_ = action(
+        tr("AI-Box"),
+        [this] { this->switch_canvas_mode(false, "ai_box_to_shape"); }, shortcuts("create_ai_mask"), ":/icons/ai-mask.svg",
+        tr("Draw a bounding box to segment object."), false, false, false
     );
     open_next_img_ = action(
-        tr("&Next Image"), &MainWindow::open_next_image, shortcuts("open_next"), ":/icons/arrow-fat-right.svg", tr("Open next (hold Ctl+Shift to copy labels)"), false, false, false
+        tr("&Next Image"),
+        &MainWindow::open_next_image, shortcuts("open_next"), ":/icons/arrow-fat-right.svg",
+        tr("Open next (hold Ctrl+Shift to copy labels)"), false, false, false
     );
     open_prev_img_ = action(
-        tr("&Prev Image"), &MainWindow::open_prev_image, shortcuts("open_prev"), ":/icons/arrow-fat-left.svg", tr("Open prev (hold Ctl+Shift to copy labels)"), false, false, false
+        tr("&Prev Image"),
+        &MainWindow::open_prev_image, shortcuts("open_prev"), ":/icons/arrow-fat-left.svg",
+        tr("Open prev (hold Ctrl+Shift to copy labels)"), false, false, false
     );
     keep_prev_scale_ = action(
-        tr("&Keep Previous Scale"), &MainWindow::enableKeepPrevScale, {}, ":/icons/icon-256.png", tr("Keep previous zoom scale"), true, true, false
+        tr("&Keep Previous Scale"),
+        &MainWindow::enableKeepPrevScale, {}, ":/icons/icon-256.png",
+        tr("Keep previous zoom scale"), true, true, false
     );
     fit_window_ = action(
-        tr("&Fit Window"), &MainWindow::setFitWindow, shortcuts("fit_window"), ":/icons/frame-corners.svg", tr("Zoom follows window size"), true, false, false
+        tr("&Fit Window"),
+        &MainWindow::setFitWindow, shortcuts("fit_window"), ":/icons/frame-corners.svg",
+        tr("Zoom follows window size"), true, false, false
     );
     fit_width_ = action(
-        tr("Fit &Width"), &MainWindow::setFitWidth, shortcuts("fit_width"), ":/icons/frame-arrows-horizontal.svg", tr("Zoom follows window width"), true, false, false
+        tr("Fit &Width"),
+        &MainWindow::setFitWidth, shortcuts("fit_width"), ":/icons/frame-arrows-horizontal.svg",
+        tr("Zoom follows window width"), true, false, false
     );
     brightness_contrast_ = action(
-        tr("&Brightness Contrast"), [this] { brightnessContrast(); }, {}, ":/icons/brightness-contrast.svg", tr("Adjust brightness and contrast"), false, false, false
+        tr("&Brightness Contrast"),
+        [this] { brightnessContrast(); }, {}, ":/icons/brightness-contrast.svg",
+        tr("Adjust brightness and contrast"), false, false, false
     );
     zoom_in_ = action(
-        tr("Zoom &In"), [this] { add_zoom(1.1); }, shortcuts("zoom_in"), ":/icons/magnifying-glass-minus.svg", tr("Increase zoom level"), false, false, false
+        tr("Zoom &In"),
+        [this] { add_zoom(1.1); }, shortcuts("zoom_in"), ":/icons/magnifying-glass-minus.svg",
+        tr("Increase zoom level"), false, false, false
     );
     zoom_out_ = action(
-        tr("&Zoom Out"), [this] { add_zoom(0.9); }, shortcuts("zoom_out"), ":/icons/magnifying-glass-plus.svg", tr("Decrease zoom level"), false, false, false
+        tr("&Zoom Out"),
+        [this] { add_zoom(0.9); }, shortcuts("zoom_out"), ":/icons/magnifying-glass-plus.svg",
+        tr("Decrease zoom level"), false, false, false
     );
     zoom_org_ = action(
-        tr("&Original size"), &MainWindow::set_zoom_to_original, shortcuts("zoom_to_original"), ":/icons/image-square.svg", tr("Zoom to original size"), false, false, false
+        tr("&Original size"),
+        &MainWindow::set_zoom_to_original, shortcuts("zoom_to_original"), ":/icons/image-square.svg",
+        tr("Zoom to original size"), false, false, false
     );
     reset_layout_ = action(
-        tr("Reset Layout"), &MainWindow::reset_layout, {}, ":/icons/layout-duotone.svg", "", false, false, false
+        tr("Reset Layout"),
+        &MainWindow::reset_layout, {}, ":/icons/layout-duotone.svg",
+        "", false, false, false
     );
     fill_drawing_ = action(
-        tr("Fill Drawing Polygon"), [this] { canvas_->setFillDrawing(fill_drawing_->isChecked()); }, {}, ":/icons/paint-bucket.svg", tr("Fill polygon while drawing"), true, true, false
+        tr("Fill Drawing Polygon"),
+        [this] { canvas_->setFillDrawing(fill_drawing_->isChecked()); }, {}, ":/icons/paint-bucket.svg",
+        tr("Fill polygon while drawing"), true, true, false
     );
     if (config_["canvas"]["fill_drawing"].as<bool>()) {
         fill_drawing_->trigger();
     }
     hide_all_ = action(
-        tr("&Hide\nShapes"), [this] { toggleShapes(false); }, shortcuts("hide_all_shapes"), ":/icons/eye.svg", tr("Hide all shapes"), false, false, false
+        tr("&Hide\nShapes"),
+        [this] { toggleShapes(false); }, shortcuts("hide_all_shapes"), ":/icons/eye.svg",
+        tr("Hide all shapes"), false, false, false
     );
     show_all_ = action(
-        tr("&Show\nShapes"), [this] { toggleShapes(true); }, shortcuts("show_all_shapes"), ":/icons/eye.svg", tr("Show all shapes"), false, false, false
+        tr("&Show\nShapes"),
+        [this] { toggleShapes(true); }, shortcuts("show_all_shapes"), ":/icons/eye.svg",
+        tr("Show all shapes"), false, false, false
     );
     toggle_all_ = action(
-        tr("&Toggle\nShapes"), [this] { toggleShapes(None); }, shortcuts("toggle_all_shapes"), ":/icons/eye.svg", tr("Toggle all shapes"), false, false, false
+        tr("&Toggle\nShapes"),
+        [this] { toggleShapes(None); }, shortcuts("toggle_all_shapes"), ":/icons/eye.svg",
+        tr("Toggle all shapes"), false, false, false
     );
 
     zoom_action_ = new QWidgetAction(this);
@@ -314,18 +405,18 @@ void MainWindow::setup_actions() {
     QObject::connect(canvas_, &Canvas::aiAssistSubmit, this, &MainWindow::slotTaskSubmit);
     QObject::connect(canvas_, &Canvas::aiAssistFinish, this, &MainWindow::slotTaskFinish);
 
-    draw_actions_ = {
-        {"polygon",     create_mode_},
-        {"rectangle",   create_rectangle_mode_},
-        {"circle",      create_circle_mode_},
-        {"point",       create_point_mode_},
-        {"line",        create_line_mode_},
-        {"linestrip",   create_line_strip_mode_},
-        {"ai_polygon",  create_ai_polygon_mode_},
-        {"ai_mask",     create_ai_mask_mode_},
+    actions_draw_ = {
+        {"polygon",            create_mode_},
+        {"rectangle",          create_rectangle_mode_},
+        {"circle",             create_circle_mode_},
+        {"point",              create_point_mode_},
+        {"line",               create_line_mode_},
+        {"linestrip",          create_line_strip_mode_},
+        {"ai_points_to_shape", create_ai_points_to_shape_mode_},
+        {"ai_box_to_shape",    create_ai_box_to_shape_mode_},
     };
 
-    zoom_actions_ = {
+    actions_zoom_ = {
         //zoom_widget_,
         zoom_in_,
         zoom_out_,
@@ -333,7 +424,7 @@ void MainWindow::setup_actions() {
         fit_window_,
         fit_width_
     };
-    on_load_active_actions_ = {
+    actions_on_load_active_ = {
         close_,
         create_mode_,
         create_rectangle_mode_,
@@ -341,12 +432,12 @@ void MainWindow::setup_actions() {
         create_line_mode_,
         create_point_mode_,
         create_line_strip_mode_,
-        create_ai_polygon_mode_,
-        create_ai_mask_mode_,
+        create_ai_points_to_shape_mode_,
+        create_ai_box_to_shape_mode_,
         brightness_contrast_,
     };
-    on_shapes_present_actions_ = {save_as_, hide_all_, show_all_, toggle_all_};
-    std::list<QAction *> context_menu_actions = {
+    actions_on_shapes_present_ = {save_as_, hide_all_, show_all_, toggle_all_};
+    std::list<QAction *> context_menu = {
         edit_mode_,
         edit_,
         duplicate_,
@@ -357,9 +448,9 @@ void MainWindow::setup_actions() {
         undo_last_point_,
         remove_point_,
     };
-    std::ranges::for_each(draw_actions_, [this](auto &p) { context_menu_actions_.push_back(p.second); });
-    std::ranges::for_each(context_menu_actions, [this](auto &a) { context_menu_actions_.push_back(a); });
-    edit_menu_actions_ = {
+    std::ranges::for_each(actions_draw_, [this](auto &p) { actions_context_menu_.push_back(p.second); });
+    std::ranges::for_each(context_menu, [this](auto &a) { actions_context_menu_.push_back(a); });
+    actions_edit_menu_ = {
         edit_,
         duplicate_,
         copy_,
@@ -436,21 +527,26 @@ void MainWindow::setup_menus() {
     const auto shortcuts = [this](const std::string &key) { return YAML_KEYS(config_["shortcuts"][key]); };
 
     quit_ = action(
-        tr("&Quit"), &MainWindow::close, shortcuts("quit"), ":/icons/quit.png", tr("Quit application"), false, true, false
+        tr("&Quit"),
+        &MainWindow::close, shortcuts("quit"), ":/icons/quit.png",
+        tr("Quit application"), false, true, false
     );
     open_config_ = action(
-        tr("Preferences…"), &MainWindow::open_config_file, {"Ctrl+Shift+,"}, ":/icons/icon-256.png", tr("Open image or label file"), false, true, false
+        tr("Preferences…"),
+        &MainWindow::open_config_file, {"Ctrl+Shift+,"}, ":/icons/icon-256.png",
+        tr("Open config file in text editor"), false, true, false
     );
     open_config_->setMenuRole(QAction::PreferencesRole);
     help_ = action(
-        tr("&Tutorial"), &MainWindow::tutorial, {}, ":/icons/question.svg", tr("Show tutorial page"), false, true, false
+        tr("&Tutorial"),
+        &MainWindow::tutorial, {}, ":/icons/question.svg",
+        tr("Show tutorial page"), false, true, false
     );
 
     file_menu_ = menu(tr("&File"));
     edit_menu_ = menu(tr("&Edit"));
     view_menu_ = menu(tr("&View"));
     help_menu_ = menu(tr("&Help"));
-    recent_menu_ = menu(tr("Open &Recent"));
 
     label_menu_ = new QMenu();
     utils::addActions(label_menu_, {edit_, delete_});
@@ -464,7 +560,6 @@ void MainWindow::setup_menus() {
             open_next_img_,
             open_prev_img_,
             open_dir_,
-            recent_menu_,
             save_,
             save_as_,
             save_auto_,
@@ -508,10 +603,8 @@ void MainWindow::setup_menus() {
         }
     );
 
-    QObject::connect(file_menu_, &QMenu::aboutToShow, this, &MainWindow::updateFileMenu);
-
     utils::addActions(
-        canvas_->menus_[0], this->context_menu_actions_
+        canvas_->menus_[0], this->actions_context_menu_
     );
     utils::addActions(
         canvas_->menus_[1],
@@ -526,14 +619,13 @@ void MainWindow::setup_menus() {
     //    edit=edit_menu,
     //    view=view_menu,
     //    help=help_menu,
-    //    recent_files=recent_files,
     //    label_list=label_menu,
     //)
 }
 
 void MainWindow::setup_toolbars() {
     select_ai_model_ = new QWidgetAction(this);
-    select_ai_model_->setDefaultWidget(ai_assisted_annotation_widget_);
+    select_ai_model_->setDefaultWidget(ai_assist_annotation_widget_);
 
     ai_prompt_action_ = new QWidgetAction(this);
     ai_prompt_action_->setDefaultWidget(ai_text_to_annotation_widget_);
@@ -570,7 +662,9 @@ void MainWindow::setup_toolbars() {
     );
 
     std::list<QAction *> draw_actions;
-    std::ranges::for_each(draw_actions_, [&](const auto &p) { draw_actions.push_back(p.second); });
+    std::ranges::for_each(actions_draw_, [&draw_actions](auto &item) { if (!item.first.startsWith("ai_")) { draw_actions.push_back(item.second); } });
+    draw_actions.push_back(nullptr);
+    std::ranges::for_each(actions_draw_, [&draw_actions](auto &item) { if (item.first.startsWith("ai_")) { draw_actions.push_back(item.second); } });
     this->addToolBar(
         Qt::LeftToolBarArea,
         new TlToolBar(
@@ -581,15 +675,17 @@ void MainWindow::setup_toolbars() {
             this->font()
         )
     );
+
+    QObject::connect(ai_assist_annotation_widget_, &AiAssistAnnotation::hover_highlight_requested, this, &MainWindow::highlight_ai_buttons);
 }
 
-void MainWindow::setup_app_state(const QString &output_dir, const QString &file_name) {
+void MainWindow::setup_app_state(const QString &file_or_dir, const QString &output_dir) {
     this->output_dir_ = output_dir;
 
     this->image_;
     this->label_file_;
     this->image_path_;
-    this->max_recent_ = 7;
+    this->prev_image_path_;
     this->other_data_ = nullptr;
     this->zoom_values_ = {};
     this->brightness_contrast_values_ = {};
@@ -615,7 +711,6 @@ void MainWindow::setup_app_state(const QString &output_dir, const QString &file_
         reset_layout();
         settings_.setValue("settingsVersion", SETTINGS_VERSION);
     }
-    this->recent_files_ = this->settings_.value("recentFiles", {}).toStringList();
     this->resize(this->settings_.value("window/size", QSize(900, 500)).toSize());
     this->move(this->settings_.value("window/position", QPoint(0, 0)).toPoint());
     this->restoreState(this->settings_.value("window/state", QByteArray()).toByteArray());
@@ -627,22 +722,13 @@ void MainWindow::setup_app_state(const QString &output_dir, const QString &file_
         this->move(QApplication::primaryScreen()->availableGeometry().topLeft());
     }
 
-    if (!file_name.isEmpty()) {
-        if (QFileInfo(file_name).isDir()) {
-            this->import_images_from_dir(
-                file_name, this->files_search_->text()
-            );
-            this->open_next_image();
-        } else {
-            this->load_file(file_name);
-        }
-    } else {
-        filename_ = "";
+    if (!file_or_dir.isEmpty()) {
+        this->load_from_file_or_dir(file_or_dir);
     }
 }
 
 void MainWindow::setup_status_bar() {
-    this->message_ = new QLabel(tr("%1 started.").arg(qAppName()));
+    this->message_ = new QLabel(tr("%1 started.").arg(tr("tl assistant")));
     this->stats_ = new StatusStats();
     this->statusBar()->addWidget(message_, 1);
     this->statusBar()->addWidget(stats_, 0);
@@ -680,6 +766,7 @@ void MainWindow::setup_canvas() {
     QObject::connect(canvas_, &Canvas::drawingPolygon, this, &MainWindow::toggleDrawingSensitive);
 
     this->setCentralWidget(scroll_area_);
+
     //return _CanvasWidgets(
     //    canvas=canvas,
     //    zoom_widget=zoom_widget,
@@ -702,18 +789,19 @@ void MainWindow::setup_dock_widgets() {
     QObject::connect(shape_list_, &ShapeListView::itemDoubleClicked, this, &MainWindow::edit_label);
     QObject::connect(shape_list_, &ShapeListView::itemChanged, this, &MainWindow::labelItemChanged);
     QObject::connect(shape_list_, &ShapeListView::itemDropped, this, &MainWindow::labelOrderChanged);
-    this->shape_dock_ = new QDockWidget(tr("Polygon Labels"), this);
+    this->shape_dock_ = new QDockWidget(tr("Annotation List"), this);
     this->shape_dock_->setObjectName("Labels");
     this->shape_dock_->setWidget(this->shape_list_);
 
-    this->label_list_ =  new TlLabelList();    // UniqueLabelQListWidget()
+    this->label_list_ =  new LabelList();    // UniqueLabelQListWidget()
     this->label_list_->setToolTip(
         tr("Select label to start annotating for it. Press 'Esc' to deselect.")
     );
     if (!config_["labels"].IsNull()) {
         for (auto &lbl : YAML_KEYS(config_["labels"]))
             this->label_list_->add_label_item(
-                lbl, get_rgb_by_label(lbl)
+                lbl,
+                get_rgb_by_label(lbl, label_list_)
             );
     }
     this->label_dock_ = new QDockWidget(tr("Label List"), this);
@@ -723,18 +811,18 @@ void MainWindow::setup_dock_widgets() {
     files_search_ = new QLineEdit();
     files_search_->setPlaceholderText(tr("Search Filename"));
     QObject::connect(files_search_, &QLineEdit::textChanged, this, &MainWindow::fileSearchChanged);
-    files_list_ = new QListWidget();
-    QObject::connect(files_list_, &QListWidget::itemSelectionChanged, this, &MainWindow::fileSelectionChanged);
-    auto *files_layout = new QVBoxLayout();
-    files_layout->setContentsMargins(0, 0, 0, 0);
-    files_layout->setSpacing(0);
-    files_layout->addWidget(files_search_);
-    files_layout->addWidget(files_list_);
+    docks_files_list_ = new QListWidget();
+    QObject::connect(docks_files_list_, &QListWidget::itemSelectionChanged, this, &MainWindow::file_list_item_selection_changed);
+    auto *file_list_layout = new QVBoxLayout();
+    file_list_layout->setContentsMargins(0, 0, 0, 0);
+    file_list_layout->setSpacing(0);
+    file_list_layout->addWidget(files_search_);
+    file_list_layout->addWidget(docks_files_list_);
     this->files_dock_ = new QDockWidget(tr("File List"), this);
     this->files_dock_->setObjectName("Files");
-    auto *files_widget = new QWidget();
-    files_widget->setLayout(files_layout);
-    this->files_dock_->setWidget(files_widget);
+    auto *file_list_container = new QWidget();
+    file_list_container->setLayout(file_list_layout);
+    this->files_dock_->setWidget(file_list_container);
 
     for (auto &[config_key, dock_widget] : std::map<std::string, QDockWidget *>{
         {"flag_dock", flags_dock_},
@@ -815,13 +903,13 @@ bool MainWindow::noShapes() {
 void MainWindow::populateModeActions() {
     canvas_->menus_[0]->clear();
     utils::addActions(
-        this->canvas_->menus_[0], context_menu_actions_
+        this->canvas_->menus_[0], actions_context_menu_
     );
     this->edit_menu_->clear();
     std::list<QObject *> actions;
-    std::ranges::transform(draw_actions_, std::back_inserter(actions), [](auto &it){ return it.second; });
+    std::ranges::transform(actions_draw_, std::back_inserter(actions), [](auto &it){ return it.second; });
     actions.push_back(edit_mode_);
-    std::ranges::transform(edit_menu_actions_, std::back_inserter(actions), [](auto &it){ return it; });
+    std::ranges::transform(actions_edit_menu_, std::back_inserter(actions), [](auto &it){ return it; });
 
     utils::addActions(this->edit_menu_, actions);
 }
@@ -830,12 +918,12 @@ QString MainWindow::get_window_title(bool dirty) {
     QString window_title = tr("tl assistant");
     if (!image_path_.isEmpty()) {
         window_title = QString("%1 - %2").arg(window_title, image_path_);
-        if (files_list_->count() && files_list_->currentItem())
+        if (docks_files_list_->count() && docks_files_list_->currentItem())
             window_title = QString(
                 "%1 "   // window_title
                 "[%2"   // {self.fileListWidget.currentRow() + 1}
                 "/%3]"  // {self.fileListWidget.count()}
-            ).arg(window_title).arg(files_list_->currentRow() + 1).arg(files_list_->count());
+            ).arg(window_title).arg(docks_files_list_->currentRow() + 1).arg(docks_files_list_->count());
     }
     if (!this->image_.isNull()) {
         window_title = QString("%1 | %2x%3").arg(window_title).arg(image_.width()).arg(image_.height());
@@ -867,7 +955,7 @@ void MainWindow::setDirty() {
 void MainWindow::setClean() {
     this->is_changed_ = false;
     this->save_->setEnabled(false);
-    for (auto &[fst, action] : this->draw_actions_) {
+    for (const auto &action : this->actions_draw_ | std::views::values) {
         action->setEnabled(true);
     }
     this->setWindowTitle(get_window_title(false));
@@ -882,10 +970,10 @@ void MainWindow::setClean() {
 void MainWindow::toggleActions(bool value) {
     // Enable/Disable widgets which depend on an opened image.
     zoom_widget_->setEnabled(value);
-    for (auto &z : zoom_actions_) {
+    for (auto &z : actions_zoom_) {
         z->setEnabled(value);
     }
-    for (auto &action : on_load_active_actions_) {
+    for (auto &action : actions_on_load_active_) {
         action->setEnabled(value);
     }
 }
@@ -899,11 +987,16 @@ void MainWindow::show_status_message(const QString &message, int32_t delay) {
 }
 
 void MainWindow::submit_ai_prompt() {
-    if (!AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE.contains(canvas_->createMode_)) {
-        SPDLOG_WARN("Unsupported createMode={}", canvas_->createMode_);
+    auto create_mode = canvas_->createMode();
+    QString shape_type;  //: Literal["rectangle", "polygon", "mask"]
+    if (AI_CREATE_MODES.contains(create_mode)) {
+        shape_type = ai_assist_annotation_widget_->output_format();
+    } else if (TextToAnnotationCreateMode.contains(create_mode)) {
+        shape_type = create_mode;
+    } else {
+        SPDLOG_WARN("Unsupported createMode={}", create_mode);
         return;
     }
-    const auto shape_type = AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE[canvas_->createMode_];
 
     const auto texts = ai_text_to_annotation_widget_->get_texts_prompt();
     if (texts.empty()) {
@@ -971,7 +1064,7 @@ void MainWindow::submit_ai_prompt() {
 
     this->slotTaskSubmit();
     const auto image = utils::ImageToMat(image_);
-    const auto image_id = std::hash<QString>{}(filename_);
+    const auto image_id = std::hash<QString>{}(image_path_);
     QList<TlShape> shapes = bbox_from_text::get_shapes_from_texts(text_osam_session_.get(), image, image_id, texts);
     this->slotTaskFinish();
 
@@ -982,7 +1075,6 @@ void MainWindow::submit_ai_prompt() {
 
 void MainWindow::resetState() {
     this->shape_list_->clear();
-    this->filename_.clear();
     this->image_path_.clear();
     this->imageData_.clear();
     this->label_file_.reset();
@@ -998,14 +1090,6 @@ QListWidgetItem *MainWindow::currentItem() {
     return nullptr;
 }
 
-void MainWindow::addRecentFile(const QString &filename) {
-    if (recent_files_.contains(filename)) {
-        recent_files_.removeOne(filename);
-    } else if (recent_files_.count() >= max_recent_) {
-        recent_files_.pop_back();
-    }
-    recent_files_.insert(0, filename);
-}
 // Callbacks
 
 void MainWindow::undoShapeEdit() {
@@ -1035,48 +1119,67 @@ void MainWindow::toggleDrawingSensitive(bool drawing) {
 }
 
 void MainWindow::switch_canvas_mode(bool edit, const QString &createMode) {
+    if (createMode == "ai_points_to_shape") {
+        const auto model_name = canvas_->get_ai_model_name();
+        if (AI_MODELS_WITHOUT_POINT_SUPPORT.contains(model_name)) {
+            QMessageBox::warning(
+                this,
+                tr("AI-Points Unavailable"),
+                tr(
+                    "%1 does not support point prompts.\n"
+                    "Please select a different model or use AI-Box mode."
+                )
+                .arg(model_name)
+            );
+            return;
+        }
+    }
     this->canvas_->setEditing(edit);
     if (!createMode.isEmpty()) {
         this->canvas_->createMode_ = createMode;
     }
     if (edit) {
-        for (auto draw_action : this->draw_actions_ | std::views::values) {
+        for (const auto &draw_action : this->actions_draw_ | std::views::values) {
             draw_action->setEnabled(true);
         }
     } else {
-        for (auto &[draw_mode, draw_action] : this->draw_actions_) {
+        for (auto &[draw_mode, draw_action] : this->actions_draw_) {
             draw_action->setEnabled(createMode != draw_mode);
         }
     }
     this->edit_mode_->setEnabled(!edit);
     this->ai_text_to_annotation_widget_->setEnabled(
-        !edit && AI_TEXT_TO_ANNOTATION_CREATE_MODE_TO_SHAPE_TYPE.contains(createMode)
+        !edit
+        && AI_CREATE_MODES.contains(createMode)
     );
-    this->ai_assisted_annotation_widget_->setEnabled(
-        !edit && QKey{"ai_polygon", "ai_mask"}.contains(createMode)
-    );
+    this->ai_assist_annotation_widget_->setEnabled(!edit && AI_CREATE_MODES.contains(createMode));
+    if (createMode == "ai_points_to_shape") {
+        this->ai_assist_annotation_widget_->set_disabled_models(AI_MODELS_WITHOUT_POINT_SUPPORT);
+    } else {
+        this->ai_assist_annotation_widget_->set_disabled_models({});
+    }
 }
 
-void MainWindow::updateFileMenu() {
-    const auto current = this->filename_;
-
-    std::vector<QString> files;
-    std::ranges::for_each(recent_files_, [&](auto &f) { if (f != current && QFile::exists(f)) files.push_back(f); });
-
-    this->recent_menu_->clear();
-    //files = [f for f in self.recentFiles if f != current and exists(f)]
-    for (auto i = 0; i < files.size(); ++i) {
-        const auto f = files[i];
-        auto icon = utils::newIcon("labels");
-        const auto action = new QAction(
-            icon, QString("&%1 %2").arg(i + 1).arg(QFileInfo(f).fileName()), this
-        );
-        QObject::connect(action, &QAction::triggered, this, [this, f]() { this->loadRecent(f); });
-        this->recent_menu_->addAction(action);
+void MainWindow::highlight_ai_buttons(bool highlight) {
+    const QString HIGHLIGHT_COLOR("#FFFFCC");
+    const QString BORDER_COLOR("#E6E6A0");
+    const QString bg = highlight ? HIGHLIGHT_COLOR : "transparent";
+    const QString border = highlight ? BORDER_COLOR : "transparent";
+    const QString style = QString(
+        "QToolButton:!checked:!pressed {"
+        " background-color: %1; border: 1px solid {border};"
+        " }"
+    ).arg(bg);
+    for (auto &[mode, action] : actions_draw_) {
+        if (AI_CREATE_MODES.contains(mode))
+            for (const auto &widget : action->associatedWidgets())
+                if (qobject_cast<QToolButton *>(widget))
+                    widget->setStyleSheet(style);
     }
 }
 
 void MainWindow::popLabelListMenu(const QPoint &point) {
+    // PyQt5 stubs type QMenu.exec() argument too narrowly
     this->label_menu_->exec(this->shape_list_->mapToGlobal(point));
 }
 
@@ -1087,6 +1190,7 @@ bool MainWindow::validateLabel(const QString &label) {
     }
 
     for (auto i = 0; i < label_list_->count(); ++i) {
+        // PyQt5 stubs: item() typed as Optional and .data() unrecognized
         auto label_i = label_list_->item(i)->data(Qt::UserRole);
         if (YAML_STR(config_["validate_label"]) == "exact") {
             if (label_i == label) {
@@ -1111,9 +1215,12 @@ void MainWindow::edit_label(bool value) {
     bool edit_group_id = true;
     bool edit_description = true;
     if (items.size() > 1) {
-        edit_text = std::all_of(items.begin() + 1, items.end(), [&](const auto &item) { return item->shape().label_ == shape.label_ ; });
-        edit_flags = std::all_of(items.begin() + 1, items.end(), [&](const auto &item) { return item->shape().flags_ == shape.flags_ ; });
-        edit_group_id = std::all_of(items.begin() + 1, items.end(), [&](const auto &item) {
+        edit_text = std::all_of(
+            items.begin() + 1, items.end(), [&](const auto &item) { return item->shape().label_ == shape.label_ ; });
+        edit_flags = std::all_of(
+            items.begin() + 1, items.end(), [&](const auto &item) { return item->shape().flags_ == shape.flags_ ; });
+        edit_group_id = std::all_of(
+            items.begin() + 1, items.end(), [&](const auto &item) {
             return item->shape().group_id_ == shape.group_id_ ;
         });
         edit_description = std::all_of(items.begin() + 1, items.end(), [&](const auto &item) {
@@ -1129,17 +1236,13 @@ void MainWindow::edit_label(bool value) {
     if (!edit_description)
         this->label_dialog_->editDescription_->setDisabled(true);
 
-    const auto pop = this->label_dialog_->popUp(
+    const auto [text, flags, group_id, description] = this->label_dialog_->popUp(
         edit_text ? shape.label_ : "",
         edit_flags ? shape.flags_ : QMap<QString, bool>{},
         edit_group_id ? shape.group_id_ : None,
         edit_description ? shape.description_ : "",
         !edit_flags
     );
-    const auto text = std::get<0>(pop);
-    const auto flags = std::get<1>(pop);
-    const auto group_id = std::get<2>(pop);
-    const auto description = std::get<3>(pop);
 
     if (!edit_text) {
         this->label_dialog_->edit_->setDisabled(false);
@@ -1181,6 +1284,7 @@ void MainWindow::edit_label(bool value) {
             shape.description_ = description;
 
         this->update_shape_color(shape);
+        // assert shape.label is not None
         if (shape.group_id_ == None) {
             int32_t r, g, b;
             shape.fill_color.getRgb(&r, &g, &b);
@@ -1196,7 +1300,8 @@ void MainWindow::edit_label(bool value) {
         this->setDirty();
         if (this->label_list_->find_label_item(shape.label_) == nullptr)
             this->label_list_->add_label_item(
-                shape.label_, get_rgb_by_label(shape.label_)
+                shape.label_,
+                get_rgb_by_label(shape.label_, label_list_)
             );
     }
 }
@@ -1207,32 +1312,24 @@ void MainWindow::fileSearchChanged() {
     );
 }
 
-void MainWindow::fileSelectionChanged() {
-    const auto items = files_list_->selectedItems();
-    if (items.empty()) {
-        return;
-    }
-    const auto &item = *items[0];
-
+void MainWindow::file_list_item_selection_changed() {
     if (!can_continue()) {
         return;
     }
-
-    const auto imagelist = imageList();
-    auto currIndex = imagelist.indexOf(item.text());
-    if (currIndex < imagelist.count()) {
-        auto filename = imagelist[currIndex];
-        if (!filename.isEmpty()) {
-            load_file(filename);
-        }
+    const auto items = docks_files_list_->selectedItems();
+    if (items.empty()) {
+        return;
     }
+    load_file(items[0]->text());
 }
 
 // React to canvas signals.
 void MainWindow::shapeSelectionChanged(const QList<int32_t> &selected_shapes) {
-    QObject::disconnect(shape_list_, &ShapeListView::itemSelectionChanged, this, &MainWindow::label_selection_changed);
-    for (auto &idx : canvas_->selectedShapes_) {
-        canvas_->shapes_[idx].selected_ = false;
+    QObject::disconnect(shape_list_, &ShapeListView::itemSelectionChanged, this,
+        &MainWindow::label_selection_changed
+    );
+    for (auto &shape : canvas_->selectedShapes_) {
+        canvas_->shapes_[shape].selected_ = false;
     }
     shape_list_->clearSelection();
     canvas_->selectedShapes_ = selected_shapes;
@@ -1242,8 +1339,10 @@ void MainWindow::shapeSelectionChanged(const QList<int32_t> &selected_shapes) {
         shape_list_->selectItem(item);
         shape_list_->scrollToItem(item);
     }
-    QObject::connect(shape_list_, &ShapeListView::itemSelectionChanged, this, &MainWindow::label_selection_changed);
-    const auto n_selected = selected_shapes.size();
+    QObject::connect(shape_list_, &ShapeListView::itemSelectionChanged, this,
+        &MainWindow::label_selection_changed
+    );
+    const auto n_selected = selected_shapes.size() > 0;
     delete_->setEnabled(n_selected);
     duplicate_->setEnabled(n_selected);
     copy_->setEnabled(n_selected);
@@ -1261,11 +1360,12 @@ void MainWindow::addLabel(TlShape &shape) {
     shape_list_->addItem(shape_list_item);
     if (label_list_->find_label_item(shape.label_) == nullptr) {
         this->label_list_->add_label_item(
-            shape.label_, get_rgb_by_label(shape.label_)
+            shape.label_,
+            get_rgb_by_label(shape.label_, label_list_)
         );
     }
     label_dialog_->addLabelHistory(shape.label_);
-    for (const auto &action : on_shapes_present_actions_) {
+    for (const auto &action : actions_on_shapes_present_) {
         action->setEnabled(true);
     }
 
@@ -1280,7 +1380,10 @@ void MainWindow::addLabel(TlShape &shape) {
 }
 
 void MainWindow::update_shape_color(TlShape &shape) {
-    const auto v = get_rgb_by_label(shape.label_);
+    //assert shape.label is not None
+    const auto v = get_rgb_by_label(
+        shape.label_, label_list_
+    );
     shape.line_color_ = QColor(v[0], v[1], v[2]);
     shape.vertex_fill_color_ = QColor(v[0], v[1], v[2]);
     shape.hvertex_fill_color_ = QColor(255, 255, 255);
@@ -1289,13 +1392,14 @@ void MainWindow::update_shape_color(TlShape &shape) {
     shape.select_fill_color_ = QColor(v[0], v[1], v[2], 155);
 }
 
-std::vector<int32_t> MainWindow::get_rgb_by_label(const QString &label) {   // tuple[int, int, int]
+std::vector<int32_t> MainWindow::get_rgb_by_label(const QString &label, LabelList *label_list) {
     const auto label_colors = YAML_QSTR(config_["label_colors"]);
     if (YAML_STR(config_["shape_color"]) == "auto") {
-        const auto *item = label_list_->find_label_item(label);
-        const int32_t item_index = ((item != nullptr) ?
-            this->label_list_->indexFromItem(item).row() :
-            this->label_list_->count()
+        const auto *item = label_list->find_label_item(label);
+        const int32_t item_index = (
+            (item != nullptr) ?
+            label_list->indexFromItem(item).row() :
+            label_list->count()
         );
         const int32_t label_id = (
             1   // skip black color by default
@@ -1324,10 +1428,12 @@ std::vector<int32_t> MainWindow::get_rgb_by_label(const QString &label) {   // t
 }
 
 void MainWindow::remLabels(const QList<TlShape> &shapes) {
+    QObject::disconnect(shape_list_, &ShapeListView::itemDropped, this, &MainWindow::labelOrderChanged);
     for (const auto &shape : shapes) {
         auto *item = shape_list_->findItemByShape(shape);
         shape_list_->removeItem(item);
     }
+    QObject::connect(shape_list_, &ShapeListView::itemDropped, this, &MainWindow::labelOrderChanged);
 }
 
 void MainWindow::load_shapes(QList<TlShape> &shapes, bool replace) {
@@ -1386,7 +1492,7 @@ void MainWindow::load_flags(const YAML::Node &flags, QListWidget *const widget) 
 }
 
 bool MainWindow::saveLabels(const QString &filename) {
-    auto lf = std::unique_ptr<TlLabelFile>(new TlLabelFile());
+    auto lf = std::unique_ptr<LabelFile>(new LabelFile());
 
     const auto format_shape = [](const TlShape &s) {
         auto data = s.other_data_;
@@ -1435,15 +1541,12 @@ bool MainWindow::saveLabels(const QString &filename) {
             flags
         );
         label_file_ = std::move(lf);
-        auto items = files_list_->findItems(image_path_, Qt::MatchExactly);
+        auto items = docks_files_list_->findItems(image_path_, Qt::MatchExactly);
         if (items.count() > 0) {
-            if (items.count() != 1) {
+            if (items.count() != 1)
                 throw std::runtime_error("There are duplicate files.");
-            }
             items[0]->setCheckState(Qt::Checked);
         }
-        //disable allows next and previous ima ge to proceed
-        //this->filename = filename
         return true;
     } catch (const LabelFileError &e) {
         errorMessage(
@@ -1483,7 +1586,9 @@ void MainWindow::label_selection_changed() {
     if (!selected_shapes.empty()) {
         canvas_->selectShapes(selected_shapes);
     } else {
-        canvas_->deSelectShape();
+        if (canvas_->deSelectShape()) {
+            canvas_->update();
+        }
     }
 }
 
@@ -1535,10 +1640,13 @@ void MainWindow::newShape() {
     }
     if (!text.isEmpty()) {
         label_list_->clearSelection();
-        auto &shape = canvas_->setLastLabel(text, flags);
-        shape.group_id_ = group_id;
-        shape.description_ = description;
-        addLabel(shape);
+        //assert isinstance(flags, dict)
+        auto shapes = canvas_->setLastLabel(text, group_id, description, flags);    // 在Canvas上更新.
+        for (auto shape : shapes) {
+            shape.group_id_ = group_id;
+            shape.description_ = description;
+            addLabel(shape);
+        }
         edit_mode_->setEnabled(true);
         undo_last_point_->setEnabled(false);
         undo_->setEnabled(true);
@@ -1550,20 +1658,20 @@ void MainWindow::newShape() {
 }
 
 void MainWindow::scrollRequest(int32_t delta, Qt::Orientation orientation) {
-    auto units = -delta * 0.1;  // natural scroll
-    auto *bar = scroll_bars_[orientation];
-    auto value = bar->value() + bar->singleStep() * units;
+    const auto units = -delta * 0.1;  // natural scroll
+    const auto *bar = scroll_bars_[orientation];
+    const auto value = bar->value() + bar->singleStep() * units;
     setScroll(orientation, value);
 }
 
 void MainWindow::setScroll(Qt::Orientation orientation, float value) {
     scroll_bars_[orientation]->setValue(value);
-    scroll_values_[orientation][filename_] = value;
+    scroll_values_[orientation][image_path_] = value;
 }
 
 void MainWindow::set_zoom(int32_t value, QPointF pos) {
-    if (filename_.isEmpty()) {
-        SPDLOG_WARN("filename is None, cannot set zoom");
+    if (image_path_.isEmpty()) {
+        SPDLOG_WARN("image_path is None, cannot set zoom");
         return;
     }
 
@@ -1577,7 +1685,7 @@ void MainWindow::set_zoom(int32_t value, QPointF pos) {
         value > scalers_[ZoomMode::FIT_WINDOW]() * 100
     );
     this->zoom_widget_->setValue(value);  // triggers self._paint_canvas
-    this->zoom_values_[filename_] = {this->zoom_mode_, value};
+    this->zoom_values_[image_path_] = {this->zoom_mode_, value};
 
     int32_t canvas_width_new = this->canvas_->width();
     if (canvas_width_old == canvas_width_new) {
@@ -1639,25 +1747,24 @@ void MainWindow::enableKeepPrevScale(bool enabled) {
 
 void MainWindow::onNewBrightnessContrast(const QImage &image) {
     // QPixmap::fromImage: 深拷贝, 原始QImage的数据会被复制到新的QPixmap中.
-    canvas_->loadPixmap(QPixmap::fromImage(image), this->filename_, false);
+    canvas_->loadPixmap(QPixmap::fromImage(image), image_path_, false);
 }
 
 void MainWindow::brightnessContrast(bool value, bool is_initial_load) {
-    if (filename_.isEmpty()) {
-        SPDLOG_WARN("filename is None, cannot set brightness/contrast");
+    if (image_path_.isEmpty()) {
+        SPDLOG_WARN("image_path is None, cannot set brightness/contrast");
         return;
     }
 
     int32_t brightness = None;
     int32_t contrast = None;
-    if (const auto it = brightness_contrast_values_.find(this->filename_); it != brightness_contrast_values_.end()) {
+    if (const auto it = brightness_contrast_values_.find(this->image_path_); it != brightness_contrast_values_.end()) {
         brightness = it->first; contrast = it->second;
     }
 
     if (is_initial_load) {
-        QString prev_filename = recent_files_.empty() ? "" : recent_files_[0];
-        if (config_["keep_prev_brightness_contrast"].as<bool>() && !prev_filename.isEmpty())
-            if (const auto it = brightness_contrast_values_.find(prev_filename); it != brightness_contrast_values_.end()) {
+        if (config_["keep_prev_brightness_contrast"].as<bool>() && !prev_image_path_.isEmpty())
+            if (const auto it = brightness_contrast_values_.find(prev_image_path_); it != brightness_contrast_values_.end()) {
                 brightness = it->first, contrast = it->second;
             }
         if (brightness == None && contrast == None) {
@@ -1689,98 +1796,111 @@ void MainWindow::brightnessContrast(bool value, bool is_initial_load) {
         contrast = dialog.slider_contrast_->value();
     }
 
-    this->brightness_contrast_values_[this->filename_] = {brightness, contrast};
+    this->brightness_contrast_values_[this->image_path_] = {brightness, contrast};
     SPDLOG_DEBUG(
         "Updated states for {}: brightness={}, contrast={}",
-        filename_,
+        image_path_,
         brightness,
-        contrast
-    );
+        contrast);
 }
 
 void MainWindow::toggleShapes(int32_t value) {
-    bool flag = (value == None) ? false : value;
     for (auto *item : shape_list_->items()) {
-        if (value == None) {
-            flag = item->checkState() == Qt::Unchecked;
-        }
-        item->setCheckState(flag ? Qt::Checked : Qt::Unchecked); // emit itemChanged
+        auto target = (value == None) ? item->checkState() == Qt::Unchecked : value;
+        item->setCheckState(target ? Qt::Checked : Qt::Unchecked); // emit itemChanged
     }
 }
 
-bool MainWindow::load_file(QString filename) {
-    const auto imagelist = imageList();
-    //Load the specified file, or the last opened file if None.
-    //changing fileListWidget loads file
-    if (imagelist.contains(filename) &&
-        files_list_->currentRow() != imagelist.indexOf(filename)
+QString MainWindow::get_label_path(QString image_or_label_path) {
+    if (LabelFile::is_label_file(image_or_label_path))
+        return image_or_label_path;
+    const QFileInfo file_info(image_or_label_path);
+    return (output_dir_.isEmpty() ? file_info.absolutePath() : output_dir_)
+        + "/" + file_info.baseName() + LabelFile::suffix;
+}
+
+void MainWindow::load_file(QString image_or_label_path) {
+    // changing fileListWidget loads file
+    if (imageList().contains(image_or_label_path) &&
+        docks_files_list_->currentRow() != imageList().indexOf(image_or_label_path)
     ) {
-        this->files_list_->setCurrentRow(imagelist.indexOf(filename));
-        this->files_list_->repaint();
-        return true;
+        this->docks_files_list_->setCurrentRow(
+            imageList().indexOf(image_or_label_path)
+        );
+        this->docks_files_list_->repaint();
+        return;
     }
 
-    QList<TlShape> prev_shapes;
-    if (config_["keep_prev"].as<bool>() ||
-        QApplication::keyboardModifiers() == (Qt::ControlModifier | Qt::ShiftModifier)) {
-        prev_shapes = canvas_->shapes_;
-    }
+    //prev_shapes: list[Shape] = (
+    //    self._canvas_widgets.canvas.shapes
+    //    if self._config["keep_prev"]
+    //    or QtWidgets.QApplication.keyboardModifiers()
+    //    == (Qt.ControlModifier | Qt.ShiftModifier)
+    //    else []
+    //)
+    QList<TlShape> prev_shapes = (
+        config_["keep_prev"].as<bool>() || QApplication::keyboardModifiers() == (Qt::ControlModifier | Qt::ShiftModifier)
+        ? canvas_->shapes_ : QList<TlShape>()
+    );
+    this->prev_image_path_ = this->image_path_;
     this->resetState();
     this->canvas_->setEnabled(false);
-    if (filename.isEmpty()) {
-        filename = settings_.value("filename", "").toString();
-    }
-    QFileInfo fileInfo(filename);
-    std::filesystem::path file_path(filename.toStdString());
-    if (!QFile::exists(filename)) {
-        errorMessage(
+    if (!QFile::exists(image_or_label_path)) {
+        this->errorMessage(
             tr("Error opening file"),
-            tr("No such file: <b>%1</b>").arg(filename)
+            tr("No such file: <b>%1</b>").arg(image_or_label_path)
         );
-        return false;
+        return;
     }
     // assumes same name, but json extension
-    show_status_message(tr("Loading %1...").arg(fileInfo.baseName()));
+    this->show_status_message(
+        tr("Loading %1...").arg(QFileInfo(image_or_label_path).baseName())
+    );
+
     const auto t0_load_file = std::chrono::system_clock::now();
-    auto label_file = QString::fromStdString(file_path.replace_extension("json").string());
-    if (!output_dir_.isEmpty()) {
-        QFileInfo labelInfo(label_file);
-        auto label_file_without_path = labelInfo.baseName();
-        label_file = output_dir_ + "/" + label_file_without_path;
-    }
-    if (QFile(label_file).exists() && TlLabelFile::is_label_file(label_file)) {
+    if (QString label_path; QFile::exists(
+        label_path = get_label_path(image_or_label_path))
+    ) {
         try {
-            label_file_ = std::unique_ptr<TlLabelFile>(new TlLabelFile(label_file));
+            this->label_file_ = std::unique_ptr<LabelFile>(new LabelFile(label_path));
         } catch (LabelFileError &e) {
             errorMessage(
                 tr("Error opening file"),
                 tr(
                     "<p><b>%1</b></p>"
-                    "<p>Make sure <i>%2</i> is a valid label file."
+                    "<p>Make sure <i>%2</i> is a valid label file.</p>"
                 )
-                .arg(e.what(), label_file)
+                .arg(e.what(), label_path)
             );
-            show_status_message(tr("Error reading %1").arg(label_file));
-            return false;
+            show_status_message(tr("Error reading %1").arg(label_path));
+            return;
         }
-        imageData_ = label_file_->imageData_;
-        image_path_ = QFileInfo(label_file).absolutePath() + "/" + label_file_->imagePath_;
-        other_data_ = label_file_->otherData_;
+        this->imageData_ = label_file_->imageData_;
+        this->image_path_ = QFileInfo(label_path).absolutePath() + "/" + label_file_->imagePath_;
+        this->other_data_ = label_file_->otherData_;
     } else {
+        auto image_path = image_or_label_path;
         try {
-            imageData_ = TlLabelFile::load_image_file(filename);
-        } catch (LabelFileError &e) {
-
+            this->imageData_ = LabelFile::load_image_file(image_path);
+        } catch (OSError &e) {
+            errorMessage(
+                tr("Error opening file"),
+                tr(
+                    "<p><b>%1</b></p>"
+                    "<p>Make sure <i>%2</i> is a valid image file.</p>"
+                )
+                .arg(e.what(), image_path)
+            );
+            show_status_message(tr("Error reading %1").arg(image_path));
+            return;
         }
-        if (!imageData_.isEmpty()) {
-            image_path_ = filename;
-        }
-        label_file_.reset();
+        if (!imageData_.isEmpty())
+            this->image_path_ = image_path;
+        this->label_file_.reset();
     }
-    const auto t0 = std::chrono::system_clock::now();
+    auto t0 = std::chrono::system_clock::now();
     const auto image = QImage::fromData(imageData_);
-    const auto t1 = std::chrono::system_clock::now();
-    SPDLOG_INFO("Created QImage in {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
+    SPDLOG_INFO("Created QImage in {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - t0).count());
 
     if (image.isNull()) {
         QStringList formats;
@@ -1790,62 +1910,60 @@ bool MainWindow::load_file(QString filename) {
         errorMessage(
             tr("Error opening file"),
             tr(
-                "<p>Make sure <i>{%1}</i> is a valid image file.<br/>"
-                "Supported image formats: {%2}</p>"
-            ).arg(filename, formats.join(","))
+                "<p>Make sure <i>%1</i> is a valid image file.<br/>"
+                "Supported image formats: %2</p>"
+            ).arg(image_or_label_path, formats.join(","))
         );
-        show_status_message(tr("Error reading %1").arg(filename));
-        return false;
+        show_status_message(tr("Error reading %1").arg(image_or_label_path));
+        return;
     }
     this->image_ = image;
-    this->filename_ = filename;
-    const auto t2 = std::chrono::system_clock::now();
-    canvas_->loadPixmap(QPixmap::fromImage(image), filename);
-    const auto t3 = std::chrono::system_clock::now();
-    SPDLOG_INFO("Loaded pixmap in {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count());
-    //flags = {k: False for k in config_["flags"] or []}
-    if (label_file_) {
+    t0 = std::chrono::system_clock::now();
+    canvas_->loadPixmap(QPixmap::fromImage(image), this->image_path_);
+    SPDLOG_INFO("Loaded pixmap in {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - t0).count());
+    YAML::Node flags; //flags = {k: False for k in config_["flags"] or []}
+    if (this->label_file_) {
         load_shape_dicts(label_file_->shapes1_);
         //if (labelFile_->flags_ is not None) {
         //    flags.update(this->labelFile.flags);
         //}
     }
-    //loadFlags(flags);
-    if (config_["keep_prev"].as<bool>() && noShapes()) {
-        load_shapes(prev_shapes, false);
-        setDirty();
+    this->load_flags(flags, flags_list_);
+    if (config_["keep_prev"].as<bool>() && this->noShapes()) {
+        this->load_shapes(prev_shapes, false);
+        this->setDirty();
     } else {
-        setClean();
+        this->setClean();
     }
     canvas_->setEnabled(true);
-
     // set zoom values
     bool is_initial_load = !zoom_values_.empty();
-    if (zoom_values_.contains(filename_)) {
-        zoom_mode_ = zoom_values_[filename_].first;
-        set_zoom(zoom_values_[filename_].second);
+    if (zoom_values_.contains(image_path_)) {
+        zoom_mode_ = zoom_values_[image_path_].first;
+        set_zoom(zoom_values_[image_path_].second);
     } else if (is_initial_load || !config_["keep_prev_scale"].as<bool>()) {
-        adjust_scale(true);
+        zoom_mode_ = ZoomMode::FIT_WINDOW;
+        adjust_scale();
     }
     // set scroll values
     for (auto &orientation : scroll_values_.keys()) {
-        if (scroll_values_[orientation].contains(filename_)) {
+        if (scroll_values_[orientation].contains(image_path_)) {
             setScroll(
-                orientation, scroll_values_[orientation][filename_]);
+                orientation, scroll_values_[orientation][image_path_]);
         }
     }
     this->brightnessContrast(false, true);
     this->paint_canvas();
-    this->addRecentFile(filename);
     this->toggleActions(true);
     this->canvas_->setFocus();
-    show_status_message(tr("Loaded ") + filename_);
-    const auto t4 = std::chrono::system_clock::now();
-    SPDLOG_INFO("Loaded file: {} in {}ms",
-        filename_,
-        std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count()
+    show_status_message(
+        tr("Loaded %1").arg(QFileInfo(image_or_label_path).baseName())
     );
-    return true;
+    SPDLOG_INFO(
+        "Loaded file: {} in {}ms",
+        image_or_label_path,
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - t0_load_file).count()
+    );
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event) {
@@ -1863,27 +1981,26 @@ void MainWindow::paint_canvas() {
         SPDLOG_WARN("image is null, cannot paint canvas");
         return;
     }
-
     canvas_->scale_ = 0.01 * zoom_widget_->value();
     canvas_->adjustSize();
     canvas_->update();
 }
 
-void MainWindow::adjust_scale(bool initial) {
+void MainWindow::adjust_scale() {
     set_zoom(scalers_[zoom_mode_]() * 100);
 }
 
 float MainWindow::scaleFitWindow() const {
-    float EPSILON_TO_HIDE_SCROLLBAR = 2.0;
-    auto w1 = this->centralWidget()->width() - EPSILON_TO_HIDE_SCROLLBAR;
-    auto h1 = this->centralWidget()->height() - EPSILON_TO_HIDE_SCROLLBAR;
-    auto a1 = w1 / h1;
+    const float EPSILON_TO_HIDE_SCROLLBAR = 2.0;
+    const auto viewport_w = this->centralWidget()->width() - EPSILON_TO_HIDE_SCROLLBAR;
+    const auto viewport_h = this->centralWidget()->height() - EPSILON_TO_HIDE_SCROLLBAR;
 
-    auto w2 = this->canvas_->pixmap_.width() * 1.;
-    auto h2 = this->canvas_->pixmap_.height() * 1.;
-    auto a2 = w2 / h2;
+    const auto pixmap_w = this->canvas_->pixmap_.width() * 1.;
+    const auto pixmap_h = this->canvas_->pixmap_.height() * 1.;
 
-    return (a2 >= a1) ? (w1 / w2) : (h1 / h2);
+    const auto scale_by_width = viewport_w / pixmap_w;
+    const auto scale_by_height = viewport_h / pixmap_h;
+    return std::min(scale_by_width, scale_by_height);
 }
 
 float MainWindow::scaleFitWidth() const {
@@ -1906,13 +2023,9 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     if (!can_continue()) {
         event->ignore();
     }
-    settings_.setValue("filename", this->filename_);
     settings_.setValue("window/size", this->size());
     settings_.setValue("window/position", this->pos());
     settings_.setValue("window/state", this->saveState());
-    settings_.setValue("recentFiles", this->recent_files_);
-    //ask the use for where to save the labels
-    //this->settings.setValue('window/geometry', this->saveGeometry())
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
@@ -1947,32 +2060,28 @@ void MainWindow::dropEvent(QDropEvent *event) {
     importDroppedImageFiles(items);
 }
 
-void MainWindow::loadRecent(const QString &filename) {
-    if (can_continue()) {
-        load_file(filename);
-    }
-}
+// User Dialogs #
 
 void MainWindow::open_prev_image(bool value) {
-    int32_t row_prev = files_list_->currentRow() - 1;
+    int32_t row_prev = docks_files_list_->currentRow() - 1;
     if (row_prev < 0) {
         SPDLOG_INFO("there is no prev image");
         return;
     }
     SPDLOG_INFO("setting current row to {}", row_prev);
-    files_list_->setCurrentRow(row_prev);
-    files_list_->repaint();
+    docks_files_list_->setCurrentRow(row_prev);
+    docks_files_list_->repaint();
 }
 
 void MainWindow::open_next_image(bool value) {
-    int32_t row_next = files_list_->currentRow() + 1;
-    if (row_next >= files_list_->count()) {
+    int32_t row_next = docks_files_list_->currentRow() + 1;
+    if (row_next >= docks_files_list_->count()) {
         SPDLOG_INFO("there is no next image");
         return;
     }
     SPDLOG_INFO("setting current row to {}", row_next);
-    files_list_->setCurrentRow(row_next);
-    files_list_->repaint();
+    docks_files_list_->setCurrentRow(row_next);
+    docks_files_list_->repaint();
 }
 
 void MainWindow::open_file_with_dialog(bool value) {
@@ -1980,7 +2089,7 @@ void MainWindow::open_file_with_dialog(bool value) {
         return;
     }
     QString path = QString::fromStdString(AppConfig::instance().last_work_dir_);
-    QString filters(tr("Images(*.png *.jpg *.jpeg *.bmp)"));
+    QString filters(tr("Images(*.png *.bmp *.jpg *.jpeg)"));
     //formats = [
     //    f"*.{fmt.data().decode()}"
     //    for fmt in QtGui.QImageReader.supportedImageFormats()
@@ -1989,25 +2098,25 @@ void MainWindow::open_file_with_dialog(bool value) {
     //    formats + [f"*{LabelFile.suffix}"]
     //)
     FileDialogPreview fileDialog(this);
-    fileDialog.setFileMode(QFileDialog::ExistingFiles);
+    fileDialog.setFileMode(FileDialogPreview::ExistingFile);
     fileDialog.setNameFilter(filters);
     fileDialog.setWindowTitle(
-        tr("%1 - Choose Image or Label file").arg(qAppName())
+        tr("%1 - Choose Image or Label file").arg(tr("tl assistant"))
     );
     fileDialog.setWindowFilePath(path);
     fileDialog.setViewMode(FileDialogPreview::Detail);
     if (fileDialog.exec()) {
-        const auto fileName = fileDialog.selectedFiles()[0];
-        if (!fileName.isEmpty()) {
-            this->load_file(fileName);
+        const auto image_or_label_path = fileDialog.selectedFiles()[0];
+        if (!image_or_label_path.isEmpty()) {
+            this->load_from_file_or_dir(image_or_label_path);
         }
     }
 }
 
 void MainWindow::changeOutputDirDialog(bool _value) {
     auto default_output_dir = this->output_dir_;
-    if (default_output_dir.isEmpty() && !this->filename_.isEmpty()) {
-        default_output_dir = QFileInfo(this->filename_).path();
+    if (default_output_dir.isEmpty() && !this->image_path_.isEmpty()) {
+        default_output_dir = QFileInfo(this->image_path_).path();
     }
     if (default_output_dir.isEmpty()) {
         default_output_dir = this->currentPath();
@@ -2015,7 +2124,7 @@ void MainWindow::changeOutputDirDialog(bool _value) {
 
     auto output_dir = QFileDialog::getExistingDirectory(
         this,
-        tr("%1 - Save/Load Annotations in Directory").arg(qAppName()),
+        tr("%1 - Save/Load Annotations in Directory").arg(tr("tl assistant")),
         default_output_dir,
         QFileDialog::ShowDirsOnly |
         QFileDialog::DontResolveSymlinks
@@ -2033,67 +2142,58 @@ void MainWindow::changeOutputDirDialog(bool _value) {
     );
     statusBar()->show();
 
-    auto current_filename = filename_;
+    const auto current_image_path = image_path_;
     import_images_from_dir(prev_opened_dir_);
 
     const auto imagelist = imageList();
-    if (imagelist.contains(current_filename)) {
+    if (imagelist.contains(current_image_path)) {
         // retain currently selected file
-        files_list_->setCurrentRow(imagelist.indexOf(current_filename));
-        files_list_->repaint();
+        docks_files_list_->setCurrentRow(
+            imagelist.indexOf(current_image_path)
+        );
+        docks_files_list_->repaint();
     }
 }
 
-void MainWindow::saveFile(bool value) {
+void MainWindow::save_label_file(bool save_as) {
     //assert not self.image.isNull(), "cannot save empty image"
-    if (label_file_ != nullptr) {
-        // DL20180323 - overwrite when in directory
-        saveFile_(label_file_->filename_);
-    } else {
-        saveFile_(saveFileDialog());
-    }
-}
 
-void MainWindow::saveFileAs(bool value) {
-    //assert not self.image.isNull(), "cannot save empty image"
-    saveFile_(saveFileDialog());
+    QString label_path;
+    if (!save_as && (label_file_ != nullptr))
+        label_path = label_file_->filename_;
+    if (label_path.isEmpty())
+        label_path = saveFileDialog();
+
+    if (label_path.isEmpty()) {
+        SPDLOG_WARN("label_path={} is empty, so cannot save", label_path);
+        return;
+    }
+    if (saveLabels(label_path)) {
+        setClean();
+    }
 }
 
 QString MainWindow::saveFileDialog() {
-    //assert self.filename is not None
-    const QString caption = tr("%1 - Choose File").arg(qAppName());
-    const QString filters = tr("Label files (*%1)").arg(".json");
-    const auto directory = output_dir_.isEmpty() ? currentPath() : output_dir_;
-    auto dlg = QFileDialog(this, caption, directory, filters);
+    //assert self._image_path is not None
+    const QString caption = tr("%1 - Choose File").arg(tr("tl assistant"));
+    const QString filters = tr("Label files (*%1)").arg(LabelFile::suffix);
+    auto dlg = QFileDialog(
+        this,
+        caption,
+        !output_dir_.isEmpty() ? output_dir_ : QFileInfo(image_path_).path(),
+        filters
+    );
     dlg.setDefaultSuffix("json");
     dlg.setAcceptMode(QFileDialog::AcceptSave);
     dlg.setOption(QFileDialog::DontConfirmOverwrite, false);
     dlg.setOption(QFileDialog::DontUseNativeDialog, false);
-
-    QString default_label_file_name;
-    QFileInfo fileInfo(filename_);
-    if (!output_dir_.isEmpty()) {
-        default_label_file_name = QString("%1/%2%3").arg(output_dir_, fileInfo.baseName(), TlLabelFile::suffix);
-    } else {
-        default_label_file_name = QString("%1/%2%3").arg(currentPath(), fileInfo.baseName(), TlLabelFile::suffix);
-    }
-    QString filename = dlg.getSaveFileName(
+    QString label_path = dlg.getSaveFileName(
         this,
         tr("Choose File"),
-        default_label_file_name,
-        tr("Label files (*%1)").arg(TlLabelFile::suffix)
+        get_label_path(image_path_),
+        tr("Label files (*%1)").arg(LabelFile::suffix)
     );
-    //if (isinstance(filename, tuple)) {
-    //    filename, _ = filename;
-    //}
-    return filename;
-}
-
-void MainWindow::saveFile_(const QString &filename) {
-    if (!filename.isEmpty() && saveLabels(filename)) {
-        addRecentFile(filename);
-        setClean();
-    }
+    return label_path;
 }
 
 void MainWindow::closeFile(bool value) {
@@ -2104,50 +2204,49 @@ void MainWindow::closeFile(bool value) {
     this->setClean();
     this->toggleActions(false);
     this->canvas_->setEnabled(false);
-    this->files_list_->setFocus();
+    this->docks_files_list_->setFocus();
     this->save_as_->setEnabled(false);
 }
 
 QString MainWindow::getLabelFile() {
-    //assert self.filename is not None
-    QString label_file;
-    if (filename_.endsWith(".json", Qt::CaseInsensitive)) {
-        label_file = filename_;
-    } else {
-        std::filesystem::path file_path(filename_.toStdString());
-        label_file = QString::fromStdString(file_path.replace_extension("json").string());
-    }
-    return label_file;
+    //assert self.image_path_ is not None
+    std::filesystem::path file_path(image_path_.toStdString());
+    return QString::fromStdString(file_path.replace_extension("json").string());
 }
 
 void MainWindow::deleteFile() {
-    QMessageBox mb;
     const auto msg = tr(
         "You are about to permanently delete this label file, proceed anyway?"
     );
-    const auto answer = mb.warning(this, tr("Attention"), msg, mb.Yes | mb.No);
-    if (answer != mb.Yes) {
+    const auto answer = QMessageBox::warning(
+        this,
+        tr("Attention"),
+        msg,
+        QMessageBox::Yes | QMessageBox::No
+    );
+    if (answer != QMessageBox::Yes) {
         return;
     }
 
-    const auto label_file = getLabelFile();
-    if (QFileInfo::exists(label_file)) {
-        QFile::remove(label_file);
-        SPDLOG_INFO("Label file is removed: {}", label_file);
-
-        auto *const item = files_list_->currentItem();
-        if (item) {
-            item->setCheckState(Qt::Unchecked);
-        }
-
-        // 修改: 删除标签文件后保持当前打开图像.
-        //resetState();
-        this->shape_list_->clear();
-        this->label_file_.reset();
-        this->other_data_.clear();
-        this->canvas_->resetState();
-        this->canvas_->loadPixmap(QPixmap::fromImage(this->image_), this->filename_);
+    const auto annotation_path = getLabelFile();
+    if (!QFileInfo::exists(annotation_path)) {
+        return;
     }
+    QFile::remove(annotation_path);
+    SPDLOG_INFO("Label file is removed: {}", annotation_path);
+
+    auto *const item = docks_files_list_->currentItem();
+    if (item) {
+        item->setCheckState(Qt::Unchecked);
+    }
+
+    // 修改: 删除标签文件后保持当前打开图像.
+    //resetState();
+    this->shape_list_->clear();
+    this->label_file_.reset();
+    this->other_data_.clear();
+    this->canvas_->resetState();
+    this->canvas_->loadPixmap(QPixmap::fromImage(this->image_), this->image_path_);
 }
 
 void MainWindow::open_config_file() {
@@ -2187,7 +2286,7 @@ bool MainWindow::hasLabels() {
 }
 
 bool MainWindow::hasLabelFile() {
-    if (filename_.isEmpty()) {
+    if (image_path_.isEmpty()) {
         return false;
     }
 
@@ -2199,23 +2298,23 @@ bool MainWindow::can_continue() {
     if (!is_changed_) {
         return true;
     }
-    QMessageBox mb;
-    const QString msg = QString(tr("Save annotations to \"{%1}\" before closing?")).arg(filename_);
-    auto answer = mb.question(
+    const QString prompt_text = QString(tr("Save annotations to \"{%1}\" before closing?")).arg(
+        image_path_
+    );
+    auto user_choice = QMessageBox::question(
         this,
         tr("Save annotations?"),
-        msg,
-        mb.Save | mb.Discard | mb.Cancel,
-        mb.Save
+        prompt_text,
+        QMessageBox::Save
+        | QMessageBox::Discard
+        | QMessageBox::Cancel,
+        QMessageBox::Save
     );
-    if (answer == mb.Discard) {
+    if (user_choice ==  QMessageBox::Save) {
+        save_label_file();
         return true;
-    } else if (answer == mb.Save) {
-        saveFile();
-        return true;
-    } else {  // answer == mb.Cancel
-        return false;
     }
+    return user_choice ==  QMessageBox::Discard;
 }
 
 void MainWindow::errorMessage(const QString &title, const QString &message) {
@@ -2225,7 +2324,7 @@ void MainWindow::errorMessage(const QString &title, const QString &message) {
 }
 
 QString MainWindow::currentPath() {
-    return filename_.isEmpty() ? "." : QFileInfo(filename_).path();
+    return image_path_.isEmpty() ? "." : QFileInfo(image_path_).path();
 }
 
 void MainWindow::toggleKeepPrevMode() {
@@ -2235,11 +2334,14 @@ void MainWindow::toggleKeepPrevMode() {
 void MainWindow::removeSelectedPoint() {
     canvas_->removeSelectedPoint();
     canvas_->update();
-    if (canvas_->hShape_ != None && canvas_->shapes_[canvas_->hShape_].points_.empty()) {
+    if (
+        canvas_->hShape_ != None &&
+        canvas_->shapes_[canvas_->hShape_].points_.empty())
+    {
         canvas_->deleteShape(canvas_->shapes_[canvas_->hShape_]);
         remLabels({ canvas_->shapes_[canvas_->hShape_] });
         if (noShapes()) {
-            for (const auto &action : on_shapes_present_actions_) {
+            for (const auto &action : actions_on_shapes_present_) {
                 action->setEnabled(false);
             }
         }
@@ -2258,7 +2360,7 @@ void MainWindow::deleteSelectedShape() {
         remLabels(canvas_->deleteSelected());
         setDirty();
         if (noShapes()) {
-            for (auto *action : on_shapes_present_actions_) {
+            for (auto *action : actions_on_shapes_present_) {
                 action->setEnabled(false);
             }
         }
@@ -2267,8 +2369,8 @@ void MainWindow::deleteSelectedShape() {
 
 void MainWindow::copyShape() {
     canvas_->endMove(true);
-    for (auto shape : canvas_->selectedShapes_) {
-        addLabel(canvas_->shapes_[shape]);
+    for (auto &&shape : canvas_->selectedShapes_ | std::views::transform([this](int32_t i) { return canvas_->shapes_[i]; })) {
+        addLabel(shape);
     }
     label_list_->clearSelection();
     setDirty();
@@ -2277,6 +2379,31 @@ void MainWindow::copyShape() {
 void MainWindow::moveShape() {
     canvas_->endMove(false);
     setDirty();
+}
+
+void MainWindow::load_from_file_or_dir(const QString &file_or_dir) {
+    if (file_or_dir.isEmpty())
+        throw std::invalid_argument("file_or_dir cannot be empty");
+
+    if (LabelFile::is_label_file(file_or_dir)) {
+        docks_files_list_->clear();
+        files_dock_->setEnabled(false);
+        files_dock_->setToolTip(
+            tr("File list is disabled when a label file is opened")
+        );
+        load_file(file_or_dir);
+    } else if (QFileInfo(file_or_dir).isDir()) {
+        import_images_from_dir(
+            file_or_dir, files_search_->text()
+        );
+        open_next_image();
+    } else {
+        import_images_from_dir(
+            QFileInfo(file_or_dir).path(),
+            files_search_->text()
+        );
+        load_file(file_or_dir);
+    }
 }
 
 void MainWindow::open_dir_with_dialog(bool value) {
@@ -2288,26 +2415,29 @@ void MainWindow::open_dir_with_dialog(bool value) {
     if (!prev_opened_dir_.isEmpty() && QFile::exists(prev_opened_dir_)) {
         defaultOpenDirPath = prev_opened_dir_;
     } else {
-        defaultOpenDirPath = filename_.isEmpty() ? "." : QFileInfo(filename_).path();
+        defaultOpenDirPath =
+            image_path_.isEmpty() ? "." : QFileInfo(image_path_).path();
     }
 
-    auto targetDirPath = QString(
+    auto dir_path = QString(
         QFileDialog::getExistingDirectory(
             this,
-            tr("%1 - Open Directory").arg(qAppName()),
+            tr("%1 - Open Directory").arg(tr("tl assistant")),
             defaultOpenDirPath,
             QFileDialog::ShowDirsOnly |
             QFileDialog::DontResolveSymlinks
         )
     );
-    import_images_from_dir(targetDirPath);
-    open_next_image();
+    if (!dir_path.isEmpty())
+        load_from_file_or_dir(dir_path);
 }
 
+//@property
 QStringList MainWindow::imageList() {
     QStringList lst;
-    for (auto i = 0; i < files_list_->count(); ++i) {
-        auto *const item = files_list_->item(i);
+    for (auto i = 0; i < docks_files_list_->count(); ++i) {
+        auto *const item = docks_files_list_->item(i);
+        //assert item
         lst.append(item->text());
     }
     return lst;
@@ -2315,26 +2445,22 @@ QStringList MainWindow::imageList() {
 
 void MainWindow::importDroppedImageFiles(const QStringList &imageFiles) {
     QStringList extensions;
-    const QList<QByteArray> formats = QImageReader::supportedImageFormats();
-    std::ranges::transform(formats, std::back_inserter(extensions), [](auto &fmt) { return fmt.toLower(); });
+    for (const auto fmt : QImageReader::supportedImageFormats() | std::views::transform([](auto &v){ return v.toLower(); })) {
+        extensions.push_back(fmt);
+    }
 
-    filename_.clear();
-    for (auto &file : imageFiles) {
-        if (imageList().contains(file) || std::none_of(extensions.begin(), extensions.end(), [&](auto &e) { return file.endsWith(e, Qt::CaseInsensitive); }))
+    image_path_.clear();
+    for (const auto file : imageFiles | std::views::transform([](auto &v){ return v.toLower(); })) {
+        if (imageList().contains(file) || std::ranges::none_of(extensions, [&](auto &e) { return file.endsWith(e); }))
             continue;
-        auto label_file = QFileInfo(file).completeBaseName() + ".json";
-        if (!output_dir_.isEmpty()) {
-            auto label_file_without_path = QFileInfo(label_file).fileName();
-            label_file = output_dir_ + "/" + label_file_without_path;
-        }
         auto *item = new QListWidgetItem(file);
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-        if (QFile::exists(label_file) && TlLabelFile::is_label_file(label_file)) {
+        if (QFile::exists(get_label_path(file))) {
             item->setCheckState(Qt::Checked);
         } else {
             item->setCheckState(Qt::Unchecked);
         }
-        files_list_->addItem(item);
+        docks_files_list_->addItem(item);
     }
 
     if (imageList().count() > 1) {
@@ -2345,47 +2471,46 @@ void MainWindow::importDroppedImageFiles(const QStringList &imageFiles) {
     open_next_image();
 }
 
-void MainWindow::import_images_from_dir(const QString &root_dir, const QString &pattern) {
+void MainWindow::import_images_from_dir(
+    const QString &root_dir, const QString &pattern)
+{
     open_next_img_->setEnabled(true);
     open_prev_img_->setEnabled(true);
 
     if (!can_continue() || root_dir.isEmpty()) {
         return;
     }
+    files_dock_->setEnabled(true);
+    files_dock_->setToolTip("");
 
+    AppConfig::instance().last_work_dir_ = root_dir.toStdString();
     prev_opened_dir_ = root_dir;
-    AppConfig::instance().last_work_dir_ = prev_opened_dir_.toStdString();
-    filename_.clear();
-    files_list_->clear();
+    image_path_.clear();
+    docks_files_list_->clear();
 
-    auto filenames = scan_image_files(root_dir);
+    auto image_paths = scan_image_files(root_dir);
     QRegularExpression re(pattern);
     if (!pattern.isEmpty() && re.isValid()) {
-        QStringList names;
-        foreach (const auto &f, filenames) {
-            const auto match = re.match(f);
-            if (match.hasMatch()) {
-                names.append(f);
-            }
-        }
-        filenames = names;
+        QStringList filtered;
+        std::ranges::for_each(image_paths, [&filtered, re](auto &f) {
+            if (const auto match = re.match(f); match.hasMatch()) { filtered.append(f); }
+        } );
+        image_paths = filtered;
     }
-    for (auto &filename : filenames) {
-        std::filesystem::path file_path(filename.toStdString());
-        auto label_file = QString::fromStdString(file_path.replace_extension("json").string());
-        if (!output_dir_.isEmpty()) {
-            QFileInfo fileInfo(label_file);
-            auto label_file_without_path = fileInfo.baseName();
-            label_file = output_dir_ + "/" + label_file_without_path;
-        }
-        auto *const item = new QListWidgetItem(filename);
+    for (const QString &image_path : image_paths) {
+        auto *const item = new QListWidgetItem(image_path);
+        //item->setIcon(QIcon(QPixmap(filename).scaled(128, 128)));
+        //item->setSizeHint(QSize(128, 128));
+        //item->setToolTip(filename);
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-        if (QFile::exists(label_file) && TlLabelFile::is_label_file(label_file)) {
+        if (QFile::exists(
+            get_label_path(image_path)
+        )) {
             item->setCheckState(Qt::Checked);
         } else {
             item->setCheckState(Qt::Unchecked);
         }
-        files_list_->addItem(item);
+        docks_files_list_->addItem(item);
     }
 }
 
@@ -2396,35 +2521,38 @@ void MainWindow::update_status_stats(const QPointF &mouse_pos) {
     stats_->setText(stats.join(" | "));
 }
 
-QStringList MainWindow::scan_image_files(const QString &folderPath) const {
-    QStringList images;
-    QDir dir(folderPath);
-    if (!dir.exists()) {
-        return images;
-    }
-
+QStringList MainWindow::scan_image_files(const QString &root_dir) const {
     QStringList extensions;
-    for (auto &fmt : QImageReader::supportedImageFormats()) {
-        QString name = fmt.toLower();
-        extensions.append(QString("*.%1").arg(name));
+    for (const auto fmt : QImageReader::supportedImageFormats() | std::views::transform([](auto &v){ return QString(v.toLower());})) {
+        extensions.append(QString("*.%1").arg(fmt));
     }
 
-    QDirIterator iterator(folderPath, extensions, QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden, QDirIterator::Subdirectories);
+    QStringList images;
+    QDirIterator iterator(root_dir, extensions, QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden, QDirIterator::Subdirectories);
     while (iterator.hasNext()) {
         iterator.next();
-        QFileInfo fileInfo = iterator.fileInfo();
+        const QFileInfo &fileInfo = iterator.fileInfo();
         if (fileInfo.isFile()) {
             images.append(fileInfo.absoluteFilePath());
         }
     }
 
+    SPDLOG_DEBUG("found {} images in {}", images.size(), root_dir);
+
+    //return natsort.os_sorted(images)
+    //return natsort.natsorted(images)
     return images;
 }
 
+//
+// User-assisted function.
+
 MainWindow::~MainWindow() {
     delete ui_;
+    delete canvas_;
     SamApis::instance().unregister_all("");
     AppConfig::instance().save();
+    spdlog::shutdown();
 }
 
 void MainWindow::slotTaskSubmit() {

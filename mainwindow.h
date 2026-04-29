@@ -20,7 +20,7 @@
 #include "tl_widgets/tl_train_widget.h"
 
 #include "tl_modules/ai_assist_annotation.h"
-#include "tl_modules/ai_prompt_annotation.h"
+#include "tl_modules/ai_text_to_annotation.h"
 #include "yaml-cpp/yaml.h"
 
 QT_BEGIN_NAMESPACE
@@ -42,22 +42,15 @@ class MainWindow : public QMainWindow {
 public:
     MainWindow(const QString &config_file,
                const YAML::Node &config_overrides,
-               const QString &file_name,
+               const QString &file_or_dir,
                const QString &output_dir);
     ~MainWindow() override;
 
-private slots:
-    void slotTaskSubmit();
-    void slotTaskFinish();
-    // slot for DeepLearning
-    void slotActionSetup();
-    void slotActionTrain();
-    void slotActionInfer();
-    void slotReadyReadStandardOutput();
-    void slotReadyReadStandardError();
-    void slotFinishedProcess(int32_t exitCode, QProcess::ExitStatus exitStatus);
-    void slotProcessExited(int32_t exitCode, QProcess::ExitStatus exitStatus);
-    void slotError(QProcess::ProcessError);
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     Ui::MainWindow                                 *ui_{nullptr};
@@ -90,48 +83,45 @@ private:
     QListWidget                                    *flags_list_{nullptr};       // 标志列表
 
     QDockWidget                                    *label_dock_{nullptr};
-    TlLabelList                                    *label_list_{nullptr};       // 标签列表
+    LabelList                                      *label_list_{nullptr};       // 标签列表
 
     QDockWidget                                    *shape_dock_{nullptr};
     ShapeListView                                  *shape_list_{nullptr};       // 轮廓列表
 
     QDockWidget                                    *files_dock_{nullptr};
-    QListWidget                                    *files_list_{nullptr};       // 文件列表
+    QListWidget                                    *docks_files_list_{nullptr}; // 文件列表
     QLineEdit                                      *files_search_{nullptr};
 
     QWidgetAction                                  *zoom_action_{nullptr};
     ZoomWidget                                     *zoom_widget_{nullptr};
 
     QImage                                          image_;
-    QString                                         filename_;
     QString                                         image_path_;
-    QStringList                                     recent_files_;
-    int32_t                                         max_recent_{0};
+    QString                                         prev_image_path_;
     QByteArray                                      imageData_;
     QByteArray                                      other_data_;
-    std::unique_ptr<TlLabelFile>                    label_file_;
+    std::unique_ptr<LabelFile>                      label_file_;
 
     std::string                                     sam_model_name_{"efficientsam:latest"};
     std::unique_ptr<SamSession>                     text_osam_session_{nullptr};
 
-    AiAssistAnnotation                             *ai_assisted_annotation_widget_{nullptr};
-    AiPromptAnnotation                             *ai_text_to_annotation_widget_{nullptr};
+    AiAssistAnnotation                             *ai_assist_annotation_widget_{nullptr};
+    AiTextToAnnotation                             *ai_text_to_annotation_widget_{nullptr};
     QWidgetAction                                  *select_ai_model_{nullptr};
     QWidgetAction                                  *ai_prompt_action_{nullptr};
     QProgressDialog                                *progress_dialog_{nullptr};
 
-    std::list<QAction *>                            on_shapes_present_actions_;
-    std::list<std::pair<QString, QAction *>>        draw_actions_;
-    std::list<QAction *>                            zoom_actions_;
-    std::list<QAction *>                            on_load_active_actions_;
-    std::list<QObject *>                            context_menu_actions_;
-    std::list<QAction *>                            edit_menu_actions_;
+    std::list<std::pair<QString, QAction *>>        actions_draw_;
+    std::list<QAction *>                            actions_zoom_;
+    std::list<QAction *>                            actions_on_load_active_;
+    std::list<QAction *>                            actions_on_shapes_present_;
+    std::list<QObject *>                            actions_context_menu_;
+    std::list<QAction *>                            actions_edit_menu_;
 
     QMenu                                          *file_menu_{nullptr};
     QMenu                                          *edit_menu_{nullptr};
     QMenu                                          *view_menu_{nullptr};
     QMenu                                          *help_menu_{nullptr};
-    QMenu                                          *recent_menu_{nullptr};
     QMenu                                          *label_menu_{nullptr};
 
     //QAction                                        *actSetup_{nullptr};
@@ -143,7 +133,7 @@ private:
     void setup_actions();
     void setup_menus();
     void setup_toolbars();
-    void setup_app_state(const QString &output_dir, const QString &filename);
+    void setup_app_state(const QString &file_or_dir, const QString &output_dir);
     void setup_status_bar();
     void setup_canvas();
     void setup_dock_widgets();
@@ -161,28 +151,26 @@ private:
     void submit_ai_prompt();
     void resetState();
     QListWidgetItem *currentItem();
-    void addRecentFile(const QString &filename);
     void undoShapeEdit();
     void tutorial();
     void about();
     void toggleDrawingSensitive(bool drawing=true);
     void switch_canvas_mode(bool edit, const QString &createMode="");
-    void updateFileMenu();
+    void highlight_ai_buttons(bool highlight);
     void popLabelListMenu(const QPoint &point);
     bool validateLabel(const QString &label);
     void edit_label(bool value=false);
     void fileSearchChanged();
-    void fileSelectionChanged();
+    void file_list_item_selection_changed();
     void shapeSelectionChanged(const QList<int32_t> &selected_shapes);
     void addLabel(TlShape &shape);
     void update_shape_color(TlShape &shape);
-    std::vector<int32_t> get_rgb_by_label(const QString &label);
+    std::vector<int32_t> get_rgb_by_label(const QString &label, LabelList *label_list);
     void remLabels(const QList<TlShape> &shapes);
     void load_shapes(QList<TlShape> &shapes, bool replace=true);
     void load_shape_dicts(const QList<ShapeDict> &shapes);
     void load_flags(const YAML::Node &flags, QListWidget *const widget) const;
     bool saveLabels(const QString &filename);
-
     void duplicateSelectedShape();
     void pasteSelectedShape();
     void copySelectedShape();
@@ -202,26 +190,20 @@ private:
     void onNewBrightnessContrast(const QImage &image);
     void brightnessContrast(bool value=false, bool is_initial_load=false);
     void toggleShapes(int32_t value);
-    bool load_file(QString filename);
-    void resizeEvent(QResizeEvent *event) override;
+    QString get_label_path(QString image_or_label_path);
+    void load_file(QString image_or_label_path);
     void paint_canvas();
-    void adjust_scale(bool initial=false);
+    void adjust_scale();
     float scaleFitWindow() const;
     float scaleFitWidth() const;
     void enableSaveImageWithData(bool enabled);
     void reset_layout();
-    void closeEvent(QCloseEvent *event) override;
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dropEvent(QDropEvent *event) override;
-    void loadRecent(const QString &filename);
     void open_prev_image(bool value=false);
     void open_next_image(bool value=false);
     void open_file_with_dialog(bool value=false);
     void changeOutputDirDialog(bool value=false);
-    void saveFile(bool value=false);
-    void saveFileAs(bool value=false);
+    void save_label_file(bool save_as=false);
     QString saveFileDialog();
-    void saveFile_(const QString &filename);
     void closeFile(bool value=false);
     QString getLabelFile();
     void deleteFile();
@@ -236,14 +218,26 @@ private:
     void deleteSelectedShape();
     void copyShape();
     void moveShape();
+    void load_from_file_or_dir(const QString &file_or_dir);
     void open_dir_with_dialog(bool value=false);
     QStringList imageList();
     void importDroppedImageFiles(const QStringList &imageFiles);
     void import_images_from_dir(const QString &root_dir, const QString &pattern="");
     void update_status_stats(const QPointF &mouse_pos);
-    QStringList scan_image_files(const QString &folderPath) const;
+    QStringList scan_image_files(const QString &root_dir) const;
 
 private slots:
+    void slotTaskSubmit();
+    void slotTaskFinish();
+    // slot for DeepLearning
+    void slotActionSetup();
+    void slotActionTrain();
+    void slotActionInfer();
+    void slotReadyReadStandardOutput();
+    void slotReadyReadStandardError();
+    void slotFinishedProcess(int32_t exitCode, QProcess::ExitStatus exitStatus);
+    void slotProcessExited(int32_t exitCode, QProcess::ExitStatus exitStatus);
+    void slotError(QProcess::ProcessError);
 
 private:
     QAction                *quit_{nullptr};
@@ -269,8 +263,8 @@ private:
     QAction                *create_line_mode_{nullptr};
     QAction                *create_point_mode_{nullptr};
     QAction                *create_line_strip_mode_{nullptr};
-    QAction                *create_ai_polygon_mode_{nullptr};
-    QAction                *create_ai_mask_mode_{nullptr};
+    QAction                *create_ai_points_to_shape_mode_{nullptr};
+    QAction                *create_ai_box_to_shape_mode_{nullptr};
 
     QAction                *edit_mode_{nullptr};
     QAction                *delete_{nullptr};

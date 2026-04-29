@@ -46,6 +46,7 @@ Canvas::Canvas(float epsilon,
     this->ai_assist_thread_         = std::unique_ptr<AiAssistThread>(new AiAssistThread(this));
     this->sam_session_model_name_   = AppConfig::instance().ai_assist_name_;
     this->sam_session_              = nullptr;
+    this->ai_output_format_         = "polygon";
 
     //def __init__(self, *args, **kwargs):
     this->epsilon_                  = epsilon;
@@ -58,14 +59,14 @@ Canvas::Canvas(float epsilon,
     this->crosshair_                = crosshair.size() == 8 ?
         crosshair :
         QMap<QString, bool> {
-            { "polygon",    false },
-            { "rectangle",  true  },
-            { "circle",     false },
-            { "line",       false },
-            { "point",      false },
-            { "linestrip",  false },
-            { "ai_polygon", false },
-            { "ai_mask",    false },
+            { "polygon",            false },
+            { "rectangle",          true  },
+            { "circle",             false },
+            { "line",               false },
+            { "point",              false },
+            { "linestrip",          false },
+            { "ai_points_to_shape", false },
+            { "ai_box_to_shape",    false },
         };
 
     this->resetState();
@@ -120,17 +121,25 @@ void Canvas::createMode(const QString &value) {
         "line",
         "point",
         "linestrip",
-        "ai_polygon",
-        "ai_mask",
+        "ai_points_to_shape",
+        "ai_box_to_shape",
         }.contains(value)) {
         throw std::invalid_argument("Unsupported createMode: " + value.toStdString());
     }
     this->createMode_ = value;
 }
 
+std::string Canvas::get_ai_model_name() {
+    return this->sam_session_model_name_;
+}
+
 void Canvas::set_ai_model_name(const std::string &model_name) {
     this->sam_session_model_name_ = model_name;
     AppConfig::instance().ai_assist_name_ = model_name;
+}
+
+void Canvas::set_ai_output_format(const std::string &output_format) {
+    ai_output_format_ = output_format;
 }
 
 SamSession &Canvas::get_osam_session() {
@@ -143,51 +152,51 @@ SamSession &Canvas::get_osam_session() {
     return *this->sam_session_;
 }
 
-// AI辅助需要加载模型与图像编码耗时较长, 需要防止GUI界面假死, 这里进行异步处理拆分.
-void Canvas::submit_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels) {
-    if (ai_assist_points_ == points) {
-        return;
-    }
-    if (ai_assist_thread_->Submit(points, labels)) {
-        ai_assist_points_ = points;
-    }
+QList<TlShape> Canvas::shapes_from_points_ai(
+    const QList<QPointF> &points, const QList<int32_t> &labels
+) {
+    const auto image = utils::PixmapToMat(pixmap_);
+    std::vector<cv::Point2f> coords_points;
+    std::ranges::for_each(points, [&](const auto &v) { coords_points.push_back(cv::Point2f(v.x(), v.y())); });
+    std::vector<float> coords_labels;
+    std::ranges::for_each(labels, [&](const auto &v) { coords_labels.push_back(v); });
+
+    GenerateResponse response = get_osam_session().run(
+        image,  // type: ignore[arg-type]
+        pixmap_hash_,
+        coords_points,
+        coords_labels
+    );
+    return shapes_from_ai_response(
+        response,
+        ai_output_format_
+    );
 }
 
-void Canvas::update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels) {
-    emit aiAssistSubmit();
-    std::vector<cv::Point2f> point_coords;
-    point_coords.reserve(points.size());
-    std::ranges::transform(points, std::back_inserter(point_coords), [](const auto &v) { return cv::Point2f(v.x(), v.y()); });
-
-    std::vector<float> point_labels;
-    point_labels.reserve(labels.size());
-    std::ranges::transform(labels, std::back_inserter(point_labels), [](const auto &v) { return static_cast<float>(v); });
-
+QList<TlShape> Canvas::shapes_from_bbox_ai(const QList<QPointF> &bbox_points) {
+    if (bbox_points.size() != 2)
+        throw std::invalid_argument("Expected 2 points for bbox AI, got {len(bbox_points)}");
     const auto image = utils::PixmapToMat(pixmap_);
-    const GenerateResponse response = get_osam_session().run(
-        image,
-        pixmap_hash_,
-        point_coords,
-        point_labels
-    );
+    std::vector<cv::Point2f> coords_points;
+    std::ranges::transform(bbox_points, std::back_inserter(coords_points), [](const auto &v) { return cv::Point2f(v.x(), v.y()); });
+    std::vector<float> coords_labels{2, 3};
 
-    {
-        std::lock_guard<std::mutex> lock{mutex_};
-        ai_assist_shape_ = current_.copy();
-        update_shape_with_ai_response(
-            response,
-            ai_assist_shape_,
-            createMode_);
-    }
-    emit aiAssistFinish();
-    this->update();
+    GenerateResponse response = get_osam_session().run(
+        image,  //# type: ignore[arg-type]
+        pixmap_hash_,
+        coords_points,
+        //# point_labels: 2=box corner, 3=opposite box corner (SAM convention)
+        coords_labels
+    );
+    return shapes_from_ai_response(
+        response,
+        ai_output_format_
+    );
 }
 
 void Canvas::storeShapes() {
     QList<TlShape> shapesBackup;
-    for (const auto &shape : shapes_) {
-        shapesBackup.append(shape);
-    }
+    std::ranges::for_each(shapes_, [&shapesBackup](const auto &shape) { shapesBackup.append(shape); });
     while (shapesBackups_.length() > num_backups_) {
         shapesBackups_.pop_front();
     }
@@ -312,7 +321,7 @@ void Canvas::update_status(const std::list<QString> &extra_messages) {
         }
     } else {
         //assert self.editing();
-        messages.append(QString(tr("Editing shapes")));
+        messages.append(tr("Editing shapes"));
     }
     for (const auto &s : extra_messages) {
         messages.append(s);
@@ -322,16 +331,18 @@ void Canvas::update_status(const std::list<QString> &extra_messages) {
 
 QString Canvas::get_create_mode_message() {
     //assert self.drawing()
-    bool isNew = this->current_.points_.empty();
-    if (createMode_ == "ai_polygon") {
+    bool isNew = !this->current_;
+    if (createMode_ == "ai_points_to_shape") {
         return tr(
-            "Click points to include or Shift+Click to exclude for ai_polygon"
+            "Click points to include or Shift+Click to exclude."
+            " Ctrl+LeftClick ends creation."
         );
     }
-    if (createMode_ == "ai_mask") {
-        return tr(
-            "Click points to include or Shift+Click to exclude for ai_mask"
-        );
+    if (createMode_ == "ai_box_to_shape") {
+        if (isNew)
+            return tr("Click first corner of bbox for AI segmentation");
+        else
+            return tr("Click opposite corner to segment object");
     }
     if (createMode_ == "line") {
         if (isNew)
@@ -387,7 +398,7 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
 
     // Polygon drawing.
     if (drawing()) {
-        if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
+        if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)) {
             line_.shape_type("points");
         } else {
             line_.shape_type(createMode_);
@@ -395,7 +406,7 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
 
         overrideCursor(Qt::CrossCursor);
         if (!current_) {
-            repaint();  // draw crosshair
+            update();  // draw crosshair
             update_status({});
             return;
         }
@@ -403,12 +414,15 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
         if (outOfPixmap(pos)) {
             // Don't allow the user to draw outside the pixmap.
             // Project the point to the pixmap's edges.
-            pos = intersectionPoint(current_[-1], pos);
+            pos = compute_intersection_edges_image(
+                current_[-1], pos, pixmap_.size()
+            );
         } else if (
-                   snapping_ &&
-                   current_.len() > 1 &&
-                   createMode_ == "polygon" &&
-                   closeEnough(pos, current_[0])) {
+            snapping_ &&
+            current_.size() > 1 &&
+            createMode_ == "polygon" &&
+            closeEnough(pos, current_[0]))
+        {
             // Attract line to starting point and
             // colorise to alert the user.
             pos = current_[0];
@@ -418,7 +432,7 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
         if (QKey{"polygon", "linestrip"}.contains(createMode_)) {
             line_.points_ = { current_[-1], pos };
             line_.point_labels_ = { 1, 1 };
-        } else if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
+        } else if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)) {
             line_.points_ = { current_.points_.back(), pos };
             line_.point_labels_ = {
                 current_.point_labels_.back(),
@@ -426,10 +440,9 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
             };
         } else if (createMode_ == "rectangle") {
             if (is_shift_pressed) {
-                pos = snap_cursor_pos_for_square(  // override
+                prevMovePoint_ = pos = snap_cursor_pos_for_square(  // override
                     pos, current_[0]
                 );
-                prevMovePoint_ = pos;
             }
             line_.points_ = { current_[0], pos };
             line_.point_labels_ = { 1, 1 };
@@ -448,8 +461,7 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
             line_.close();
         }
         assert(line_.points_.size() == line_.point_labels_.size());
-        repaint();
-        current_.highlightClear();
+        update();
         update_status({});
         return;
     }
@@ -461,11 +473,11 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
             QList<int32_t> indexes(selectedShapesCopy_.size());
             std::iota(indexes.begin(), indexes.end(), 0); // 使用 std::iota 填充序列, 从0开始
             boundedMoveShapes(selectedShapesCopy_, indexes, pos);
-            repaint();
+            update();
         } else if (!selectedShapes_.empty()) {
             selectedShapesCopy_ = {};
             std::ranges::transform(selectedShapes_, std::back_inserter(selectedShapesCopy_), [this](int32_t idx){ return shapes_[idx]; });
-            repaint();
+            update();
         }
         update_status({});
         return;
@@ -474,79 +486,86 @@ void Canvas::mouseMoveEvent(QMouseEvent *event) {
     // Polygon/Vertex moving.
     if (Qt::LeftButton & event->buttons()) {
         if (selectedVertex()) {
-            boundedMoveVertex(pos, is_shift_pressed);
-            repaint();
+            //assert self.hVertex is not None
+            //assert self.hShape is not None
+            boundedMoveVertex(
+                shapes_[hShape_], hVertex_, pos, is_shift_pressed
+            );
+            update();
             movingShape_ = true;
         } else if (!selectedShapes_.empty() && !prevPoint_.isNull()) {
             overrideCursor(Qt::ClosedHandCursor);
             boundedMoveShapes(shapes_, selectedShapes_, pos);
-            repaint();
+            update();
             movingShape_ = true;
         }
         return;
     }
 
-    bool is_for_breaked = false;
     // Just hovering over the canvas, 2 possibilities:
     // - Highlight shapes
     // - Highlight vertex
     // Update shape/vertex fill and tooltip value accordingly.
     std::list<QString> status_messages;
-    //for shape in ([self.hShape] if self.hShape else []) + [s for s in reversed(self.shapes) if self.isVisible(s) and s != self.hShape]:
-    std::vector<int32_t> indexes;
-    if (hShape_ != None) { indexes.push_back(hShape_); }
-    for (int32_t idx = shapes_.size() - 1; idx >= 0; --idx) { if (isVisible(shapes_[idx]) && idx != hShape_) { indexes.push_back(idx); } }
-    for (const auto &idx : indexes) {
-        auto &shape = shapes_[idx];
-        // Look for a nearby vertex to highlight.
+    highlight_hover_shape(pos, status_messages);
+    emit vertexSelected(hVertex_ != None);
+    update_status(status_messages);
+}
+
+void Canvas::highlight_hover_shape(QPointF pos, std::list<QString> &status_messages) {
+    std::vector<int32_t> ordered_shapes;
+    if (hShape_ != None) { ordered_shapes.push_back(hShape_); }
+    for (int32_t idx = shapes_.size() - 1; idx >= 0; --idx) { if (isVisible(shapes_[idx]) && idx != hShape_) { ordered_shapes.push_back(idx); } }
+    //ordered_shapes: list[Shape] = ([self.hShape] if self.hShape else []) + [
+    //    s for s in reversed(self.shapes) if self.isVisible(s) and s != self.hShape
+    //]
+
+    for (auto [idx, shape] : ordered_shapes | std::views::transform([this](int32_t i) { return std::make_pair(i, shapes_[i]); })) {
         auto index = shape.nearestVertex(pos, epsilon_);
         if (index != None) {
             set_highlight(idx, None, index);
             shape.highlightVertex(index, shape.MOVE_VERTEX);
             overrideCursor(Qt::PointingHandCursor);
             status_messages.push_back(tr("Click & drag to move point"));
-            if (shape.canRemovePoint()) {
+            if (shape.canRemovePoint())
                 status_messages.push_back(
                     tr("ALT + SHIFT + Click to delete point")
                 );
-            }
             this->update();
-            is_for_breaked = true;
-            break;
+            return;
         }
-        // Look for a nearby edge to highlight.
+    }
+
+    for (auto [idx, shape] : ordered_shapes | std::views::transform([this](int32_t i) { return std::make_pair(i, shapes_[i]); })) {
         auto index_edge = shape.nearestEdge(pos, epsilon_);
         if (index_edge != None && shape.canAddPoint()) {
             set_highlight(idx, index_edge, None);
             overrideCursor(Qt::PointingHandCursor);
             status_messages.push_back(tr("ALT + Click to create point on shape"));
             this->update();
-            is_for_breaked = true;
-            break;
+            return;
         }
-        // Check if we happen to be inside a shape.
+    }
+
+    for (auto [idx, shape] : ordered_shapes | std::views::transform([this](int32_t i) { return std::make_pair(i, shapes_[i]); })) {
         if (shape.containsPoint(pos)) {
-            set_highlight(idx, index_edge, None);
+            set_highlight(idx, None, None);
             status_messages.push_back(
-                tr("Click & drag to move shape"));
+                tr("Click & drag to move shape")
+            );
             status_messages.push_back(
                 tr("Right-click & drag to copy shape")
             );
             overrideCursor(Qt::OpenHandCursor);
             this->update();
-            is_for_breaked = true;
-            break;
+            return;
         }
     }
-    // 如果没有通过 break 跳出循环, 执行这里的代码.
-    if (!is_for_breaked) {  // Nothing found, clear highlights, reset state.
-        restoreCursor();
-        if (set_highlight(None, None, None)) {
-            this->update();
-        }
+
+    restoreCursor();
+    if (set_highlight(None, None, None)) {
+        this->update();
     }
-    emit vertexSelected(hVertex_ != None);
-    update_status(status_messages);
 }
 
 void Canvas::addPointToEdge() {
@@ -571,7 +590,6 @@ void Canvas::removeSelectedPoint() {
     if (shape == None || index == None) {
         return;
     }
-    const auto saved = shapes_[shape];
     shapes_[shape].removePoint(index);
     shapes_[shape].highlightClear();
     hShape_ = shape;
@@ -581,6 +599,7 @@ void Canvas::removeSelectedPoint() {
 
 void Canvas::mousePressEvent(QMouseEvent *event) {
     QPointF pos = transformPos(event->position());
+
     bool is_shift_pressed = event->modifiers() & Qt::ShiftModifier;
 
     if (event->button() == Qt::LeftButton) {
@@ -593,7 +612,7 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
                     if (current_.isClosed()) {
                         finalise();
                     }
-                } else if (QKey{"rectangle", "circle",  "line"}.contains(createMode_)) {
+                } else if (QKey{"rectangle", "circle", "line"}.contains(createMode_)) {
                     assert(current_.points_.size() == 1);
                     current_.points_ = line_.points_;
                     finalise();
@@ -603,7 +622,7 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
                     if (event->modifiers() == Qt::ControlModifier) {
                         finalise();
                     }
-                } else if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
+                } else if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)) {
                     current_.addPoint(
                         line_.points_[1],
                         line_.point_labels_[1]
@@ -615,39 +634,38 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
                     }
                 }
             } else if (!outOfPixmap(pos)) {
-                if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
+                if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)) {
                     if (!download_ai_model(this->sam_session_model_name_, this)) {
                         return;
                     }
                 }
 
                 // Create new shape.
-                current_ = TlShape("",
-                    TlShape::line_color,
-                    QKey{"ai_polygon", "ai_mask"}.contains(createMode_)
-                        ? "points" : createMode_
-                );
+                QString initial_shape_type;
+                if (createMode_ == "ai_points_to_shape") {
+                    initial_shape_type = "points";
+                } else if (createMode_ == "ai_box_to_shape") {
+                    initial_shape_type = "points";
+                } else {
+                    initial_shape_type = createMode_;
+                }
+                current_ = TlShape("", TlShape::line_color, initial_shape_type);
                 current_.addPoint(pos, is_shift_pressed ? 0 : 1);
                 if (createMode_ == "point") {
                     finalise();
                 } else if (
-                    QKey{"ai_polygon", "ai_mask"}.contains(createMode_)
+                    QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)
                     && (event->modifiers() & Qt::ControlModifier)
                 ) {
                     finalise();
                 } else {
-                    if (createMode_ == "circle") {
+                    if (createMode_ == "circle")
                         current_.shape_type("circle");
-                    }
                     line_.points_ = {pos, pos};
-                    if (
-                        QKey{"ai_polygon", "ai_mask"}.contains(createMode_)
-                        && is_shift_pressed
-                    ) {
+                    if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_) && is_shift_pressed) {
                         line_.point_labels_ = {0, 0};
-                    } else {
+                    } else
                         line_.point_labels_ = {1, 1};
-                    }
                     setHiding();
                     emit drawingPolygon(true);
                     update();
@@ -664,7 +682,7 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
             auto group_mode = event->modifiers() == Qt::ControlModifier;
             selectShapePoint(pos, group_mode);
             prevPoint_ = pos;
-            repaint();
+            update();
         }
     } else if (event->button() == Qt::RightButton && editing()) {
         auto group_mode = event->modifiers() == Qt::ControlModifier;
@@ -672,7 +690,7 @@ void Canvas::mousePressEvent(QMouseEvent *event) {
              hShape_ != None && !selectedShapes_.contains(hShape_)
         )) {
             selectShapePoint(pos, group_mode);
-            repaint();
+            update();
         }
         prevPoint_ = pos;
     } else if (event->button() == Qt::MiddleButton && is_dragging_enabled_) {
@@ -700,9 +718,7 @@ void Canvas::mouseReleaseEvent(QMouseEvent *event) {
                 !movingShape_
             ) {
                 QList<int32_t> selected_shapes;
-                for (auto x : selectedShapes_) {
-                    if (x != hShape_) { selected_shapes.push_back(x); }
-                }
+                std::ranges::for_each(selectedShapes_, [&](auto &x){ if (x != hShape_) { selected_shapes.push_back(x); } });
                 emit selectionChanged(selected_shapes);
             }
         }
@@ -727,20 +743,18 @@ bool Canvas::endMove(bool copy) {
     assert(!selectedShapes_.empty() && !selectedShapesCopy_.empty());
     assert(selectedShapesCopy_.size() == selectedShapes_.size());
     if (copy) {
-        for (auto i = 0; i < selectedShapesCopy_.size(); ++i) {
-            auto &shape = selectedShapesCopy_[i];
+        for (const auto &&[i, shape] : selectedShapesCopy_ | std::views::enumerate) {
             shapes_.append(shape);
             shapes_[selectedShapes_[i]].selected_ = false;
             selectedShapes_[i] = shapes_.count() - 1;
         }
     } else {
-        for (auto i = 0; i < selectedShapesCopy_.size(); ++i) {
-            auto &shape = selectedShapesCopy_[i];
+        for (const auto &&[i, shape] : selectedShapesCopy_ | std::views::enumerate) {
             shapes_[selectedShapes_[i]].points_ = shape.points_;
         }
     }
     selectedShapesCopy_ = {};
-    repaint();
+    update();
     storeShapes();
     return true;
 }
@@ -764,11 +778,11 @@ bool Canvas::canCloseShape() {
         return false;
     if (!current_)
         return false;
-    if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_))
+    if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_))
         return true;
     if (createMode_ == "linestrip")
-        return current_.len() >= 2;
-    return current_.len() >= 3;
+        return current_.size() >= 2;
+    return current_.size() >= 3;
 }
 
 void Canvas::mouseDoubleClickEvent(QMouseEvent *event) {
@@ -784,11 +798,9 @@ void Canvas::mouseDoubleClickEvent(QMouseEvent *event) {
 void Canvas::selectShapes(const QList<TlShape> &shapes) {
     setHiding();
 
-    QList<int32_t> indexs;
-    for (auto &shape : shapes) {
-        indexs.push_back(shapes_.indexOf(shape));
-    }
-    emit selectionChanged(indexs);
+    QList<int32_t> indexes;
+    std::ranges::for_each(shapes, [&](auto &shape) { indexes.push_back(shapes_.indexOf(shape)); });
+    emit selectionChanged(indexes);
     update();
 }
 
@@ -825,78 +837,77 @@ void Canvas::selectShapePoint(const QPointF &point, bool multiple_selection_mode
 }
 
 void Canvas::calculateOffsets(const QPointF &point) {
-    double left   = pixmap_.width() - 1.;
-    double right  = 0.;
-    double top    = pixmap_.height() - 1.;
-    double bottom = 0.;
-    for (const auto &idx : selectedShapes_) {
-        auto rect = shapes_[idx].boundingRect();
-        if (rect.left() < left) {
-            left = rect.left();
-        }
-        if (rect.right() > right) {
-            right = rect.right();
-        }
-        if (rect.top() < top) {
-            top = rect.top();
-        }
-        if (rect.bottom() > bottom) {
-            bottom = rect.bottom();
-        }
+    if (selectedShapes_.empty()) {
+        offsets_ = { QPointF(0.0, 0.0), QPointF(0.0, 0.0) };
+        return;
     }
-    const double x1 = left   - point.x();
-    const double y1 = top    - point.y();
-    const double x2 = right  - point.x();
-    const double y2 = bottom - point.y();
-    offsets_ = { QPointF(x1, y1), QPointF(x2, y2) };
+
+    double left   = pixmap_.width();
+    double top    = pixmap_.height();
+    double right  = 0.;
+    double bottom = 0.;
+    for (const auto rect : selectedShapes_ | std::views::transform([this](int32_t i) { return shapes_[i].boundingRect(); })) {
+        left    = std::min(left, rect.left());
+        top     = std::min(top, rect.top());
+        right   = std::max(right, rect.right());
+        bottom  = std::max(bottom, rect.bottom());
+    }
+    offsets_ = {
+        QPointF(left - point.x(), top - point.y()),
+        QPointF(right - point.x(), bottom - point.y())
+    };
 }
 
-void Canvas::boundedMoveVertex(QPointF pos, bool is_shift_pressed) {
-    if (hVertex_ == None) {
-        SPDLOG_WARN("hVertex is None, so cannot move vertex: pos={}", pos);
+void Canvas::boundedMoveVertex(
+    TlShape &shape, int32_t vertex_index, QPointF pos, bool is_shift_pressed
+) {
+    if (vertex_index >= shape.points_.size()) {
+        SPDLOG_WARN(
+            "vertex_index is out of range: vertex_index={}, len(points)={}",
+            vertex_index,
+            shape.points_.size()
+        );
         return;
     }
 
     if (outOfPixmap(pos)) {
-        pos = intersectionPoint(shapes_[hShape_][hVertex_], pos);
+        pos = compute_intersection_edges_image(
+            shape[vertex_index], pos, pixmap_.size()
+        );
     }
-    if (is_shift_pressed && shapes_[hShape_].shape_type() == "rectangle")
+    if (is_shift_pressed && shape.shape_type() == "rectangle")
         pos = snap_cursor_pos_for_square(
-            pos, shapes_[hShape_][1 - hVertex_]
+            pos, shape[1 - vertex_index]
         );
 
-    shapes_[hShape_].moveVertex(hVertex_, pos);
+    shape.moveVertex(vertex_index, pos);
 }
 
 bool Canvas::boundedMoveShapes(QList<TlShape> &shapes, const QList<int32_t> &indexes, QPointF pos) {
     if (outOfPixmap(pos)) {
-        return false;  // No need to move
+        return false;
     }
-    auto o1 = pos + offsets_[0];
-    if (outOfPixmap(o1)) {
-        pos -= QPointF(std::min(0., o1.x()), std::min(0., o1.y()));
+    auto tl = pos + offsets_[0];
+    if (outOfPixmap(tl)) {
+        pos -= QPointF(std::min(0., tl.x()), std::min(0., tl.y()));
     }
-    auto o2 = pos + offsets_[1];
-    if (outOfPixmap(o2)) {
+    auto br = pos + offsets_[1];
+    if (outOfPixmap(br)) {
         pos += QPointF(
-            std::min(0., pixmap_.width() - o2.x()),
-            std::min(0., pixmap_.height() - o2.y())
+            std::min(0., pixmap_.width() - br.x()),
+            std::min(0., pixmap_.height() - br.y())
         );
     }
-    // XXX: The next line tracks the new position of the cursor
-    // relative to the shape, but also results in making it
-    // a bit "shaky" when nearing the border and allows it to
-    // go outside of the shape's area for some reason.
-    // self.calculateOffsets(self.selectedShapes, pos)
+
     auto dp = pos - prevPoint_;
-    if (!dp.isNull()) {
-        for (auto idx : indexes) {
-            shapes[idx].moveBy(dp);
-        }
-        prevPoint_ = pos;
-        return true;
+    if (dp.isNull())
+        return false;
+
+    for (const auto &idx : indexes) {
+        shapes[idx].moveBy(dp);
     }
-    return false;
+    prevPoint_ = pos;
+    return true;
 }
 
 bool Canvas::deSelectShape() {
@@ -913,9 +924,7 @@ bool Canvas::deSelectShape() {
 QList<TlShape> Canvas::deleteSelected() {
     QList<TlShape> deleted_shapes = {};
     if (!selectedShapes_.empty()) {
-        for (const auto &index : selectedShapes_) {
-            deleted_shapes.push_back(shapes_[index]);
-        }
+        std::ranges::for_each(selectedShapes_, [&](auto idx){ deleted_shapes.push_back(shapes_[idx]); });
         for (auto &shape : deleted_shapes) {
             SPDLOG_INFO("deleteSelected, removeOne: {}", shape.label_);
             shapes_.removeOne(shape);
@@ -928,8 +937,7 @@ QList<TlShape> Canvas::deleteSelected() {
 }
 
 void Canvas::deleteShape(const TlShape &shape) {
-    const auto idx = shapes_.indexOf(shape);
-    if (selectedShapes_.count(idx)) {
+    if (const auto idx = shapes_.indexOf(shape); selectedShapes_.count(idx)) {
         selectedShapes_.removeOne(idx);
     }
     if (shapes_.contains(shape)) {
@@ -962,25 +970,25 @@ void Canvas::paintEvent(QPaintEvent *event) {
         crosshair_[createMode_] &&
         drawing() &&
         !prevMovePoint_.isNull() &&
-        !outOfPixmap(prevMovePoint_)) {
+        !outOfPixmap(prevMovePoint_))
+    {
         p.setPen(QColor(0, 0, 0));
         p.drawLine(
             0,
-            (prevMovePoint_.y() * scale_),
-            this->width() - 1,
-            (prevMovePoint_.y() * scale_)
+            prevMovePoint_.y() * scale_,
+            pixmap_.width() * scale_ - 1,
+            prevMovePoint_.y() * scale_
         );
         p.drawLine(
-            (prevMovePoint_.x() * scale_),
+            prevMovePoint_.x() * scale_,
             0,
-            (prevMovePoint_.x() * scale_),
-            this->height() - 1
+            prevMovePoint_.x() * scale_,
+            pixmap_.height() * scale_ - 1
         );
     }
 
     TlShape::scale_ = scale_;
-    for (int32_t idx = 0; idx < shapes_.size(); ++idx) {
-        auto &shape = shapes_[idx];
+    for (auto &&[idx, shape] : shapes_ | std::views::enumerate) {
         if ((shape.selected_ || !hideBackround_) && isVisible(shape)) {
             shape.fill_ = (shape.selected_ || idx == hShape_);
             shape.paint(p);
@@ -1001,9 +1009,12 @@ void Canvas::paintEvent(QPaintEvent *event) {
 
     if (!current_ || !QKey{
         "polygon",
-        "ai_polygon",
-        "ai_mask"}.contains(createMode_)) {
+        "ai_points_to_shape",
+        "ai_box_to_shape"}.contains(createMode_))
+    {
         p.end();
+        if (current_)
+            current_.highlightClear();
         return;
     }
 
@@ -1020,7 +1031,7 @@ void Canvas::paintEvent(QPaintEvent *event) {
             }
             drawing_shape.addPoint(line_[1]);
         }
-    } else if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
+    } else if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)) {
         drawing_shape.addPoint(
             line_.points_[1],
             line_.point_labels_[1]
@@ -1029,6 +1040,8 @@ void Canvas::paintEvent(QPaintEvent *event) {
             drawing_shape.points_,
             drawing_shape.point_labels_
         );
+        //if shapes:
+        //    drawing_shape = shapes[0]
     }
     drawing_shape.fill_ = fillDrawing();
     drawing_shape.selected_ = fillDrawing();
@@ -1036,11 +1049,13 @@ void Canvas::paintEvent(QPaintEvent *event) {
 
     {
         std::lock_guard<std::mutex> lock{mutex_};
-        ai_assist_shape_.fill_ = fillDrawing();
-        ai_assist_shape_.selected_ = fillDrawing();
-        ai_assist_shape_.paint(p);
+        for (auto &shape : ai_assist_shapes_) {
+            shape.paint(p);
+        }
     }
     p.end();
+    if (current_)
+        current_.highlightClear();
 }
 
 QPointF Canvas::transformPos(QPointF point) {
@@ -1055,32 +1070,41 @@ void Canvas::enableDragging(bool enabled) {
 QPointF Canvas::offsetToCenter() {
     auto s = scale_;
     auto area = QWidget::size();
-    float w = pixmap_.width() * s; float h = pixmap_.height() * s;
-    float aw = area.width(); float ah = area.height();
+    float w = pixmap_.width() * s, h = pixmap_.height() * s;
+    float aw = area.width(), ah = area.height();
     float x = (aw > w) ? ((aw - w) / (2 * s)) : 0.;
     float y = (ah > h) ? ((ah - h) / (2 * s)) : 0.;
     return QPointF(x, y);
 }
 
 bool Canvas::outOfPixmap(const QPointF &p) {
-    auto w = pixmap_.width();
-    auto h = pixmap_.height();
+    auto w = pixmap_.width(), h = pixmap_.height();
     return !(0 <= p.x() && p.x() <= w && 0 <= p.y() && p.y() <= h);
 }
 
 void Canvas::finalise() {
     assert(current_);
-    if (QKey{"ai_polygon", "ai_mask"}.contains(createMode_)) {
+    QList<TlShape> new_shapes;
+    if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)) {
         std::lock_guard<std::mutex> lock{mutex_};
-        current_ = ai_assist_shape_;
-        ai_assist_points_.clear();
-        ai_assist_shape_.clear();
+        new_shapes = ai_assist_shapes_;
+    } else {
+        current_.close();
+        new_shapes = { current_ };
     }
-    current_.close();
 
-    shapes_.append(current_);
+    if (new_shapes.empty()) {
+        current_.clear();
+        ai_assist_points_.clear();
+        ai_assist_shapes_.clear();
+        return;
+    }
+
+    shapes_.append(new_shapes);
     storeShapes();
     current_.clear();
+    ai_assist_points_.clear();
+    ai_assist_shapes_.clear();
     setHiding(false);
     emit newShape();
     update();
@@ -1092,81 +1116,6 @@ bool Canvas::closeEnough(const QPointF &p1, const QPointF &p2) {
     // print "d %.2f, m %d, %.2f" % (d, m, d - m)
     // divide by scale to allow more precision when zoomed in
     return utils::distance(p1 - p2) < (epsilon_ / scale_);
-}
-
-QPointF Canvas::intersectionPoint(const QPointF &p1, const QPointF &p2) {
-    // Cycle through each image edge in clockwise fashion,
-    // and find the one intersecting the current line segment.
-    // http://paulbourke.net/geometry/lineline2d/
-    auto size = pixmap_.size();
-    const std::vector<QPointF> points = {
-        {0., 0.},
-        {size.width() - 0., 0.},
-        {size.width() - 0., size.height() - 0.},
-        {0., size.height() - 0.},
-    };
-    // x1, y1 should be in the pixmap, x2, y2 should be out of the pixmap
-    auto x1 = std::min(std::max(p1.x(), 0.), size.width() * 1.);
-    auto y1 = std::min(std::max(p1.y(), 0.), size.height() * 1.);
-    //d, i, (x, y) = min(self.intersectingEdges((x1, y1), (x2, y2), points))
-    const auto result = intersectingEdges(QPointF(x1, y1), p2, points);
-    if (result.empty()) {   // 无交点 -- 调用前判断过, 这里肯定是有交点的.
-        return QPointF(-1, -1);
-    }
-    const auto minVal = *std::ranges::min_element(result, [](const auto &a, const auto &b) {
-        return std::get<0>(a) < std::get<0>(b);
-    });
-    const auto d = std::get<0>(minVal);
-    const auto i = std::get<1>(minVal);
-    const auto x = std::get<2>(minVal).x(), y = std::get<2>(minVal).y();
-
-    const auto x3 = points[i].x(), y3 = points[i].y();
-    const auto x4 = points[(i+1)%4].x(), y4 = points[(i+1)%4].y();
-    if ((x, y) == (x1, y1)) {
-        // Handle cases where previous point is on one of the edges.
-        if (x3 == x4) {
-            return QPointF(x3, std::min(std::max(0., p2.y()), std::max(y3, y4)));
-        } else {  // y3 == y4
-            return QPointF(std::min(std::max(0., p2.x()), std::max(x3, x4)), y3);
-        }
-    }
-    return QPointF(x, y);
-}
-
-std::vector<std::tuple<qreal, int32_t, QPointF>> Canvas::intersectingEdges(const QPointF &point1, const QPointF &point2, const std::vector<QPointF> &points) {
-    std::vector<std::tuple<qreal, int32_t, QPointF>> results;
-    //Find intersecting edges.
-    //
-    // For each edge formed by `points', yield the intersection
-    // with the line segment `(x1,y1) - (x2,y2)`, if it exists.
-    // Also return the distance of `(x2,y2)' to the middle of the
-    // edge along with its index, so that the one closest can be chosen.
-    //
-    const auto x1 = point1.x(), y1 = point1.y();
-    const auto x2 = point2.x(), y2 = point2.y();
-    for (int32_t i = 0; i < 4; ++i) {
-        const auto x3 = points[i].x(), y3 = points[i].y();
-        const auto x4 = points[(i+1)%4].x(), y4 = points[(i+1)%4].y();
-        const auto denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
-        const auto nua = (x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3);
-        const auto nub = (x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3);
-        if (abs(denom) < 1e-9) { // 平行或重合
-            // This covers two cases:
-            //   nua == nub == 0: Coincident
-            //   otherwise: Parallel
-            continue;
-        }
-        const auto ua = nua / denom, ub = nub / denom;
-        if ((0 <= ua && ua <= 1) && (0 <= ub && ub <= 1)) {     // 验证交点有效性
-            const auto x = x1 + ua * (x2 - x1);
-            const auto y = y1 + ua * (y2 - y1);
-            const auto m = QPointF((x3 + x4) / 2, (y3 + y4) / 2);
-            const auto d = utils::distance(m - QPointF(x2, y2));
-            //yield d, i, (x, y);
-            results.emplace_back(std::make_tuple(d, i, QPointF(x,y)));
-        }
-    }
-    return results;
 }
 
 // These two, along with a call to adjustSize are required for the
@@ -1192,7 +1141,7 @@ QSize Canvas::minimumSizeHint() const {
 void Canvas::wheelEvent(QWheelEvent *event) {
     Qt::KeyboardModifiers mods = event->modifiers();
     QPoint delta = event->angleDelta();
-    if (event->modifiers() == Qt::ControlModifier) {
+    if (Qt::ControlModifier == mods) {
         // Ctrl + 滚轮向上滚动, 放大
         // Ctrl + 滚轮向下滚动, 缩小
         emit zoomRequest(delta.y(), event->position());
@@ -1202,14 +1151,13 @@ void Canvas::wheelEvent(QWheelEvent *event) {
         emit scrollRequest(delta.x(), Qt::Horizontal);
         emit scrollRequest(delta.y(), Qt::Vertical);
     }
-
     event->accept();
 }
 
 void Canvas::moveByKeyboard(QPointF offset) {
     if (!selectedShapes_.empty()) {
         boundedMoveShapes(shapes_, selectedShapes_, prevPoint_ + offset);
-        repaint();
+        update();
         movingShape_ = true;
     }
 }
@@ -1221,10 +1169,13 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
         if (key == Qt::Key_Escape && current_) {
             current_.clear();
             ai_assist_points_.clear();
-            ai_assist_shape_.clear();
+            ai_assist_shapes_.clear();
             emit drawingPolygon(false);
             update();
-        } else if ((key == Qt::Key_Return || key == Qt::Key_Space) && canCloseShape()) {
+        } else if (
+            (key == Qt::Key_Return || key == Qt::Key_Space) &&
+            canCloseShape()
+        ) {
             finalise();
         } else if (modifiers == Qt::AltModifier) {
             snapping_ = false;
@@ -1238,6 +1189,8 @@ void Canvas::keyPressEvent(QKeyEvent *event) {
             moveByKeyboard(QPointF(-MOVE_SPEED, 0.0));
         } else if (key == Qt::Key_Right) {
             moveByKeyboard(QPointF(MOVE_SPEED, 0.0));
+        } else if (event->matches(QKeySequence::SelectAll)) {
+            selectShapes(shapes_);
         }
     }
     update_status({});
@@ -1250,8 +1203,12 @@ void Canvas::keyReleaseEvent(QKeyEvent *event) {
             snapping_ = true;
         }
     } else if (editing()) {
-        if (movingShape_ && !selectedShapes_.empty()) {
-            auto index = selectedShapes_[0];
+        if (
+            movingShape_ &&
+            !selectedShapes_.empty() &&
+            selectedShapes_[0] < shapes_.size()
+        ) {
+            const auto index = selectedShapes_[0];
             if (shapesBackups_.back()[index].points_ != shapes_[index].points_) {
                 storeShapes();
                 emit shapeMoved();
@@ -1262,19 +1219,42 @@ void Canvas::keyReleaseEvent(QKeyEvent *event) {
     }
 }
 
-TlShape &Canvas::setLastLabel(const QString &text, const QMap<QString, bool> &flags) {
+QList<TlShape> Canvas::setLastLabel(const QString &text, int32_t group_id, const QString &description, const QMap<QString, bool> &flags) {
     assert(text);
-    shapes_.back().label_ = text;
-    shapes_.back().flags_ = flags;
+    QList<TlShape> shapes;
+    for (auto &shape : shapes_ | std::views::reverse) {
+        if (!shape.label_.isEmpty())
+            break;
+        shape.label_ = text;
+        shape.flags_ = flags;
+        shape.group_id_ = group_id;
+        shape.description_ = description;
+        shapes.append(shape);
+    }
+    //shapes.reverse()
+    //for (auto &shape : shapes | std::views::reverse) {
+    //    shape.label_ = text;
+    //    shape.flags_ = flags;
+    //}
     shapesBackups_.pop_back();
     storeShapes();
-    return shapes_.back();
+    return shapes;
 }
 
 void Canvas::undoLastLine() {
     assert(self.shapes);
-    current_ = shapes_.back();
-    shapes_.pop_back();
+    if (QKey{"ai_points_to_shape", "ai_box_to_shape"}.contains(createMode_)) {
+        // Remove all unlabeled shapes at the tail (added by AI in one shot)
+        while (!shapes_.empty() && shapes_.back().label_.isEmpty())
+            shapes_.pop_back();
+        current_.clear();
+        ai_assist_points_.clear();
+        ai_assist_shapes_.clear();
+        emit drawingPolygon(false);
+        update();
+        return;
+    }
+    current_ = shapes_.back(); shapes_.pop_back();
     current_.setOpen();
     current_.restoreShapeRaw();
     if (QKey{"polygon", "linestrip"}.contains(createMode_)) {
@@ -1292,7 +1272,7 @@ void Canvas::undoLastPoint() {
         return;
     }
     current_.popPoint();
-    if (current_.len() > 0) {
+    if (current_.size() > 0) {
         line_[0] = current_[-1];
     } else {
         current_.clear();
@@ -1320,7 +1300,7 @@ void Canvas::loadShapes(const QList<TlShape> &shapes, bool replace) {
     storeShapes();
     current_.clear();
     ai_assist_points_.clear();
-    ai_assist_shape_.clear();
+    ai_assist_shapes_.clear();
     hShape_ = None;
     hVertex_ = None;
     hEdge_ = None;
@@ -1349,7 +1329,7 @@ void Canvas::restoreCursor() {
 void Canvas::resetState() {
     this->restoreCursor();
     this->pixmap_ = QPixmap();
-    this->pixmap_hash_ = 0;
+    this->pixmap_hash_ = None;
     this->shapes_.clear();
     this->shapesBackups_.clear();
     this->movingShape_ = false;
@@ -1357,7 +1337,7 @@ void Canvas::resetState() {
     this->selectedShapesCopy_.clear();
     this->current_.clear();
     this->ai_assist_points_.clear();
-    this->ai_assist_shape_.clear();
+    this->ai_assist_shapes_.clear();
     this->hShape_ = None;
     this->lasthShape_ = None;
     this->hVertex_ = None;
@@ -1367,57 +1347,95 @@ void Canvas::resetState() {
     this->update();
 }
 
-void Canvas::update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const QString &createMode) {
-    if (!QKey{"ai_polygon", "ai_mask"}.contains(createMode)) {
-        throw std::logic_error("createMode must be 'ai_polygon' or 'ai_mask', not " + createMode.toStdString());
+TlShape Canvas::shape_from_annotation(
+    const Annotation &annotation,
+    const std::string &output_format
+) {
+    if (annotation.mask.empty()) {
+        SPDLOG_WARN("No annotation mask returned");
+        return {};
     }
 
-    if (response.annotations.empty()) {
-        SPDLOG_WARN("No annotations returned");
-        return;
-    }
+    auto &mask = annotation.mask;
 
-    if (createMode == "ai_mask") {
-        int32_t y1;
-        int32_t x1;
-        int32_t y2;
-        int32_t x2;
-        if (response.annotations[0].bbox.isNone()) {
-            const cv::Rect bbox = utils::masks_to_bboxes(response.annotations[0].mask);
-            x1 = bbox.x; y1 = bbox.y;
-            x2 = bbox.x + bbox.width; y2 = bbox.y + bbox.height;
+    if (createMode_ == "ai_box_to_shape") {
+        int32_t x1, y1, x2, y2;
+        if (annotation.bbox.isNone()) {
+            const cv::Rect bbox = utils::masks_to_bboxes(mask);
+            x1 = bbox.x,              y1 = bbox.y;
+            x2 = bbox.x + bbox.width, y2 = bbox.y + bbox.height;
         } else {
-            y1 = response.annotations[0].bbox.y1;
-            x1 = response.annotations[0].bbox.x1;
-            y2 = response.annotations[0].bbox.y2;
-            x2 = response.annotations[0].bbox.x2;
+            x1 = annotation.bbox.x1, y1 = annotation.bbox.y1;
+            x2 = annotation.bbox.x2, y2 = annotation.bbox.y2;
         }
+        TlShape shape;
         shape.setShapeRefined(
             "mask",
             {QPointF(x1, y1), QPointF(x2, y2)},
             {1, 1},
-            response.annotations[0].mask(cv::Rect(x1, y1, x2-x1, y2-y1)).clone()
+            mask(cv::Rect(x1, y1, x2-x1, y2-y1)).clone()
         );
-    } else if (createMode == "ai_polygon") {
-        auto points = measure::compute_polygon_from_mask(
-            response.annotations[0].mask
-        );
-        if (points.size() < 2) {
-            return;
+        shape.close();
+        return shape;
+    } else if (createMode_ == "ai_points_to_shape") {
+        auto points = measure::compute_polygon_from_mask(mask);
+        if (points.size() < 2)
+            return {};
+        if (!annotation.bbox.isNone()) {
+            auto &bb = annotation.bbox;
+            std::ranges::for_each(points, [&](auto &point) { point.x += bb.x1; point.y += bb.y1; });
         }
 
         QList<QPointF> point_coords;
         point_coords.reserve(points.size());
-        std::ranges::transform(points, std::back_inserter(point_coords), [](const auto &v) { return QPointF(v.x, v.y); });
+        std::ranges::for_each(points, [&](const auto &v) { point_coords.push_back(QPointF(v.x, v.y)); });
         QList<int32_t> point_labels(points.size(), 1);
 
+        TlShape shape;
         shape.setShapeRefined(
             "polygon",
             point_coords,
-            point_labels,
-            cv::Mat()
+            point_labels
+        );
+        shape.close();
+        return shape;
+    }
+    throw std::invalid_argument("Unsupported output_format: " + output_format);
+}
+
+QList<TlShape> Canvas::shapes_from_ai_response(
+    GenerateResponse &response,
+    const std::string &output_format
+) {
+    if (!QList<std::string>{"polygon", "mask"}.contains(output_format)) {
+        throw std::invalid_argument(
+            "output_format must be 'polygon' or 'mask', not " + output_format
         );
     }
+
+    if (response.annotations.empty()) {
+        SPDLOG_WARN("No annotations returned");
+        return {};
+    }
+
+    // 根据score从大到小排序.
+    std::ranges::sort(response.annotations, [](const auto &a, const auto &b) { return a.score > b.score; });
+    //annotations = sorted(
+    //    response.annotations,
+    //    key=lambda a: a.score if a.score is not None else 0,
+    //    reverse=True,
+    //)
+
+    QList<TlShape> shapes;
+    for (auto &annotation : response.annotations) {
+        auto shape = shape_from_annotation(
+            annotation, output_format
+        );
+        if (shape) {
+            shapes.append(shape);
+        }
+    }
+    return shapes;
 }
 
 QPointF Canvas::snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex) {
@@ -1427,6 +1445,92 @@ QPointF Canvas::snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex)
         np::sign(pos_from_opposite.x()) * square_size,
         np::sign(pos_from_opposite.y()) * square_size
     );
+}
+
+QPointF Canvas::compute_intersection_edges_image(
+    const QPointF &p1, const QPointF &p2, const QSize &image_size
+) {
+    // Cycle through each image edge in clockwise fashion,
+    // and find the one intersecting the current line segment.
+    // http://paulbourke.net/geometry/lineline2d/
+    const std::vector<QPointF> points = {
+        {0., 0.},
+        {image_size.width() * 1., 0.},
+        {image_size.width() * 1., image_size.height() * 1.},
+        {0., image_size.height() * 1.},
+    };
+    // x1, y1 should be in the pixmap, x2, y2 should be out of the pixmap
+    auto x1 = std::min(std::max(p1.x(), 0.), image_size.width() * 1.);
+    auto y1 = std::min(std::max(p1.y(), 0.), image_size.height() * 1.);
+    auto x2 = p2.x(), y2 = p2.y();
+    //d, i, (x, y) = std::min(compute_intersection_edges((x1, y1), (x2, y2), points))
+    const auto results = compute_intersection_edges(QPointF(x1, y1), QPointF(x2, y2), points);
+    if (results.empty()) {   // 无交点 -- 调用前判断过, 这里肯定是有交点的.
+        return QPointF(-1, -1);
+    }
+    const auto minVal = *std::ranges::min_element(results, [](const auto &a, const auto &b) { return std::get<0>(a) < std::get<0>(b); });
+    const auto d = std::get<0>(minVal);
+    const auto i = std::get<1>(minVal);
+    const auto x = std::get<2>(minVal).x(), y = std::get<2>(minVal).y();
+
+    const auto x3 = points[i].x(), y3 = points[i].y();
+    const auto x4 = points[(i+1)%4].x(), y4 = points[(i+1)%4].y();
+    if ((x, y) == (x1, y1)) {
+        // Handle cases where previous point is on one of the edges.
+        if (x3 == x4) {
+            return QPointF(x3, std::min(std::max(0., p2.y()), std::max(y3, y4)));
+        } else {  // y3 == y4
+            return QPointF(std::min(std::max(0., p2.x()), std::max(x3, x4)), y3);
+        }
+    }
+    return QPointF(x, y);
+}
+
+std::vector<std::tuple<qreal, int32_t, QPointF>> Canvas::compute_intersection_edges(
+    const QPointF &point1,
+    const QPointF &point2,
+    const std::vector<QPointF> &points
+) {
+    //"""Find intersecting edges.
+    //
+    //For each edge formed by `points', yield the intersection
+    //with the line segment `(x1,y1) - (x2,y2)`, if it exists.
+    //Also return the distance of `(x2,y2)' to the middle of the
+    //edge along with its index, so that the one closest can be chosen.
+    std::vector<std::tuple<qreal, int32_t, QPointF>> results;
+    const auto x1 = point1.x(), y1 = point1.y();
+    const auto x2 = point2.x(), y2 = point2.y();
+    for (int32_t i = 0; i < 4; ++i) {
+        const auto x3 = points[i].x(), y3 = points[i].y();
+        const auto x4 = points[(i+1)%4].x(), y4 = points[(i+1)%4].y();
+        const auto denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+        const auto nua = (x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3);
+        const auto nub = (x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3);
+        if (abs(denom) < 1e-9)  // 平行或重合
+            // This covers two cases:
+            //   nua == nub == 0: Coincident
+            //   otherwise: Parallel
+            continue;
+        const auto ua = nua / denom, ub = nub / denom;
+        if ((0 <= ua && ua <= 1) && (0 <= ub && ub <= 1)) {     // 验证交点有效性
+            const auto x = x1 + ua * (x2 - x1);
+            const auto y = y1 + ua * (y2 - y1);
+            const auto m = QPointF((x3 + x4) / 2, (y3 + y4) / 2);
+            const auto d = utils::distance(m - QPointF(x2, y2));
+            //yield d, i, (x, y)
+            results.emplace_back(std::make_tuple(d, i, QPointF(x,y)));
+        }
+    }
+    return results;
+}
+
+//
+// User-assisted function.
+//
+Canvas::~Canvas() {
+    if (ai_assist_thread_) {
+        ai_assist_thread_.reset();
+    }
 }
 
 void Canvas::update_shape_info(const TlShape &shape) {
@@ -1445,4 +1549,28 @@ void Canvas::update_shape_info(const TlShape &shape) {
             s.select_fill_color_    = shape.select_fill_color_;
         }
     }
+}
+
+// AI辅助需要加载模型与图像编码耗时较长, 需要防止GUI界面假死, 这里进行异步处理拆分.
+void Canvas::submit_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels) {
+    if (ai_assist_points_ == points) {
+        return;
+    }
+
+    if (ai_assist_thread_->Submit(points, labels)) {
+        ai_assist_points_ = points;
+    }
+}
+
+void Canvas::update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels) {
+    emit aiAssistSubmit();
+
+    QList<TlShape> new_shapes = shapes_from_points_ai(points, labels);
+    {
+        std::lock_guard<std::mutex> lock{mutex_};
+        ai_assist_shapes_.swap(new_shapes);
+    }
+
+    emit aiAssistFinish();
+    this->update();
 }

@@ -11,7 +11,7 @@
 #include <QFileInfo>
 
 
-QString TlLabelFile::suffix = ".json";
+QString LabelFile::suffix = ".json";
 
 ShapeDict load_shape_json_obj(const nlohmann::json &shape_json_obj) {
     std::set<std::string> SHAPE_KEYS = {
@@ -129,7 +129,7 @@ ShapeDict load_shape_json_obj(const nlohmann::json &shape_json_obj) {
 }
 
 
-TlLabelFile::TlLabelFile(const QString &filename) {
+LabelFile::LabelFile(const QString &filename) {
     shapes_ = {};
     imagePath_ = {};
     imageData_ = {};
@@ -140,7 +140,7 @@ TlLabelFile::TlLabelFile(const QString &filename) {
 }
 
 //@staticmethod
-QByteArray TlLabelFile::load_image_file(const QString &filename) {
+QByteArray LabelFile::load_image_file(const QString &filename) {
     QByteArray imageData;
     try {
         QImage image;
@@ -155,13 +155,13 @@ QByteArray TlLabelFile::load_image_file(const QString &filename) {
         buffer.open(QIODevice::WriteOnly);
         image.save(&buffer, format.data());
     } catch (...) {
-        //logger.error("Failed opening image file: {}".format(filename));
+        SPDLOG_ERROR("Failed opening image file: {}", filename);
     }
 
     return imageData;
 }
 
-void TlLabelFile::load(const QString &filename) {
+void LabelFile::load(const QString &filename) {
     QSet<QString> keys = {
         "version",
         "imageData",
@@ -252,7 +252,7 @@ void TlLabelFile::load(const QString &filename) {
 }
 
 //@staticmethod
-std::pair<int32_t, int32_t> TlLabelFile::check_image_height_and_width(const QByteArray &imageData, int32_t imageHeight, int32_t imageWidth) {
+std::pair<int32_t, int32_t> LabelFile::check_image_height_and_width(const QByteArray &imageData, int32_t imageHeight, int32_t imageWidth) {
     const auto image = QImage::fromData((uchar *)imageData.data(), imageData.size());
     int32_t actual_w = image.width(), actual_h = image.height();
     if (imageHeight != -1 &&  actual_h != imageHeight) {
@@ -272,14 +272,14 @@ std::pair<int32_t, int32_t> TlLabelFile::check_image_height_and_width(const QByt
     return {imageHeight, imageWidth};
 }
 
-void TlLabelFile::save(const QString &filename,
-                       const QList<TlShape> &shapes,
-                       const QString &imagePath,
-                       const QByteArray &imageData,
-                       int32_t imageHeight,
-                       int32_t imageWidth,
-                       const QString &otherData,
-                       const QMap<QString, bool> &flags) {
+void LabelFile::save(const QString &filename,
+                     const QList<TlShape> &shapes,
+                     const QString &imagePath,
+                     const QByteArray &imageData,
+                     int32_t imageHeight,
+                     int32_t imageWidth,
+                     const QString &otherData,
+                     const QMap<QString, bool> &flags) {
     std::string imageBase64;
     if (!imageData.isEmpty()) {
         imageBase64 = base64::b64encode(imageData);
@@ -327,7 +327,8 @@ void TlLabelFile::save(const QString &filename,
     }
 }
 
-bool TlLabelFile::is_label_file(const QString &filename) {
-    std::filesystem::path file_path(filename.toStdString());
-    return file_path.extension() == ".json";
+bool LabelFile::is_label_file(const QString &filename) {
+    const std::filesystem::path fs(filename.toStdString());
+    const auto extension = QString::fromStdString(fs.extension().string());      // 包含.的后缀, 如: .json
+    return extension.toLower() == LabelFile::suffix;
 }

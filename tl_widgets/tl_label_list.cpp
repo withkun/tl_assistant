@@ -13,18 +13,18 @@ void EscapableQListWidget::keyPressEvent(QKeyEvent *keyEvent) {
     }
 }
 
-TlLabelList::TlLabelList() {
+LabelList::LabelList() {
     this->setItemDelegate(new HTMLDelegate(this));
 }
 
-void TlLabelList::mousePressEvent(QMouseEvent *mouseEvent) {
+void LabelList::mousePressEvent(QMouseEvent *mouseEvent) {
     QListWidget::mousePressEvent(mouseEvent);
     if (!this->indexAt(mouseEvent->pos()).isValid()) {
         clearSelection();
     }
 }
 
-QListWidgetItem *TlLabelList::find_label_item(const QString &label) {
+QListWidgetItem *LabelList::find_label_item(const QString &label) {
     for (auto row = 0; row < this->count(); ++row) {
         auto *item = this->item(row);
         if (item->data(Qt::UserRole) == label) {
@@ -34,7 +34,7 @@ QListWidgetItem *TlLabelList::find_label_item(const QString &label) {
     return nullptr;
 }
 
-void TlLabelList::add_label_item(const QString &label, const std::vector<int32_t> &color) {
+void LabelList::add_label_item(const QString &label, const std::vector<int32_t> &color) {
     if (this->find_label_item(label)) {
         std::cerr << "[TlLabelList::add_label_item] " << label.toStdString() << " already exists" << std::endl;
         throw std::logic_error(std::format("Item for label '{}' already exists", label.toStdString()));

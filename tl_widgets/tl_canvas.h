@@ -61,7 +61,10 @@ public:
                     const QString &double_click="close",
                     int32_t num_backups=10,
                     const QMap<QString, bool> &crosshair={});
-    ~Canvas() override = default;
+    ~Canvas() override;
+
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override;
 
 protected:
     void wheelEvent(QWheelEvent *event) override;
@@ -103,12 +106,13 @@ private:
 
     std::string                         sam_session_model_name_{"sam2:latest"};
     std::unique_ptr<SamSession>         sam_session_{nullptr};
+    std::string                         ai_output_format_;
 
     friend class AiAssistThread;
     std::mutex                          mutex_;  // lock for AI shape.
     std::unique_ptr<AiAssistThread>     ai_assist_thread_;
     QList<QPointF>                      ai_assist_points_;
-    TlShape                             ai_assist_shape_;
+    QList<TlShape>                      ai_assist_shapes_;
 
     QList<TlShape>                      shapes_;
     QList<QList<TlShape>>               shapesBackups_;    //多次复制记录.
@@ -152,16 +156,16 @@ private:
     void setFillDrawing(bool value);
     QString createMode()  const;
     void createMode(const QString &value);
+    std::string get_ai_model_name();
     void set_ai_model_name(const std::string &model_name);
+    void set_ai_output_format(const std::string &output_format);
     SamSession &get_osam_session();
-    void submit_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels);
-    void update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels);
+    QList<TlShape> shapes_from_points_ai(const QList<QPointF> &points, const QList<int32_t> &labels);
+    QList<TlShape> shapes_from_bbox_ai(const QList<QPointF> &bbox_points);
+
     void storeShapes();
     bool isShapeRestorable();
     void restoreShape();
-    //void enterEvent(QEnterEvent *event) override;
-    //void leaveEvent(QEvent *event) override;
-    //void focusOutEvent(QFocusEvent *event) override;
     bool isVisible(const TlShape &shape);
     bool drawing();
     bool editing();
@@ -171,40 +175,29 @@ private:
     bool selectedEdge();
     void update_status(const std::list<QString> &extra_messages);
     QString get_create_mode_message();
-    //void mouseMoveEvent(QMouseEvent *event) override;
+    void highlight_hover_shape(QPointF pos, std::list<QString> &status_messages);
     void addPointToEdge();
     void removeSelectedPoint();
-    //void mousePressEvent(QMouseEvent *event) override;
-    //void mouseReleaseEvent(QMouseEvent *event) override;
     bool endMove(bool copy);
     void hideBackroundShapes(bool value);
     void setHiding(bool enable = true);
     bool canCloseShape();
-    //void mouseDoubleClickEvent(MouseEvent *event) override;
     void selectShapes(const QList<TlShape> &shapes);
     void selectShapePoint(const QPointF &point, bool multiple_selection_mode);
     void calculateOffsets(const QPointF &point);
-    void boundedMoveVertex(QPointF pos, bool is_shift_pressed);
+    void boundedMoveVertex(TlShape &shape, int32_t vertex_index, QPointF pos, bool is_shift_pressed);
     bool boundedMoveShapes(QList<TlShape> &shapes, const QList<int32_t> &indexes, QPointF pos);
     bool deSelectShape();
     QList<TlShape> deleteSelected();
     void deleteShape(const TlShape &shape);
-    //void paintEvent(QPaintEvent *event) override;
     QPointF transformPos(QPointF point);
     void enableDragging(bool enabled);
     QPointF offsetToCenter();
     bool outOfPixmap(const QPointF &p);
     void finalise();
     bool closeEnough(const QPointF &p1, const QPointF &p2);
-    QPointF intersectionPoint(const QPointF &p1, const QPointF &p2);
-    std::vector<std::tuple<qreal, int32_t, QPointF>> intersectingEdges(const QPointF &point1, const QPointF &point2, const std::vector<QPointF> &points);
-    QSize sizeHint() const override;
-    QSize minimumSizeHint() const override;
-    //void wheelEvent(QWheelEvent *event) override;
     void moveByKeyboard(QPointF offset);
-    //void keyPressEvent(QKeyEvent *event) override;
-    //void keyReleaseEvent(QKeyEvent *event) override;
-    TlShape &setLastLabel(const QString &text, const QMap<QString, bool> &flags);
+    QList<TlShape> setLastLabel(const QString &text, int32_t group_id, const QString &description, const QMap<QString, bool> &flags);
     void undoLastLine();
     void undoLastPoint();
     void loadPixmap(const QPixmap &pixmap, const QString &filename, bool clear_shapes = true);
@@ -214,9 +207,19 @@ private:
     void restoreCursor();
     void resetState();
 
-    void update_shape_with_ai_response(const GenerateResponse &response, TlShape &shape, const QString &createMode);
+    TlShape shape_from_annotation(const Annotation &annotation, const std::string &output_format);
+    QList<TlShape> shapes_from_ai_response(GenerateResponse &response, const std::string &output_format);
+
     QPointF snap_cursor_pos_for_square(QPointF pos, QPointF opposite_vertex);
 
+    QPointF compute_intersection_edges_image(const QPointF &p1, const QPointF &p2, const QSize &image_size);
+    std::vector<std::tuple<qreal, int32_t, QPointF>> compute_intersection_edges(
+        const QPointF &point1, const QPointF &point2, const std::vector<QPointF> &points
+    );
+
     void update_shape_info(const TlShape &shape);
+
+    void submit_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels);
+    void update_shape_with_ai(const QList<QPointF> &points, const QList<int32_t> &labels);
 };
 #endif //__INC_CANVAS_H

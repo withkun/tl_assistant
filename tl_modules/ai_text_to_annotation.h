@@ -1,16 +1,16 @@
-#ifndef __INC_AI_PROMPT_ANNOTATION_H
-#define __INC_AI_PROMPT_ANNOTATION_H
+#ifndef __INC_AI_TEXT_TO_ANNOTATION_H
+#define __INC_AI_TEXT_TO_ANNOTATION_H
 
 #include <QWidget>
 #include <QLineEdit>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 
-class AiPromptAnnotation : public QWidget {
+class AiTextToAnnotation : public QWidget {
     Q_OBJECT
 public:
-    explicit AiPromptAnnotation(const std::string &default_model, const std::function<void()> &on_submit, QWidget *parent = nullptr);
-    ~AiPromptAnnotation() override;
+    explicit AiTextToAnnotation(const std::string &default_model, const std::function<void()> &on_submit, QWidget *parent = nullptr);
+    ~AiTextToAnnotation() override;
 
     void setEnabled(bool a0);
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -30,4 +30,4 @@ private:
     QDoubleSpinBox         *score_spinbox_;
     QDoubleSpinBox         *iou_spinbox_;
 };
-#endif //__INC_AI_PROMPT_ANNOTATION_H
+#endif //__INC_AI_TEXT_TO_ANNOTATION_H

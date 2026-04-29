@@ -52,9 +52,10 @@ TlShape::TlShape(const QString &label,
 
     this->highlightIndex_             = None;
     this->highlightMode_              = NEAR_VERTEX;
-    this->highlightSettings_         = {
-        { NEAR_VERTEX, {4, P_ROUND} },
-        { MOVE_VERTEX, {1.5, P_SQUARE} }
+    this->highlight_sizes_            = { {NEAR_VERTEX, 4}, {MOVE_VERTEX, 1.5} };
+    this->highlight_shapes_           = {
+        { NEAR_VERTEX, P_ROUND },
+        { MOVE_VERTEX, P_SQUARE }
     };
 
     this->closed_                     = false;
@@ -66,20 +67,21 @@ TlShape::TlShape(const QString &label,
     this->select_fill_color_          = TlShape::select_fill_color;
     this->vertex_fill_color_          = TlShape::vertex_fill_color;
     this->hvertex_fill_color_         = TlShape::hvertex_fill_color;
-    //this->point_type_                 = TlShape::point_type_;
-    //this->point_size_                 = TlShape::point_size_;
-    //this->scale_                      = TlShape::scale_;
     this->current_vertex_fill_color_  = TlShape::current_vertex_fill_color;
 
     this->uuid_                       = QUuid::createUuid().toString();
 }
 
-QPointF TlShape::scale_point(const QPointF &point) {
+QPointF TlShape::scale_point(const QPointF &point) const {
     // 展示缩放: 这里需要使用Canvas设置的全局变量, 其余计算使用局部变量始终保持为1.
     return { point.x() * TlShape::scale_, point.y() * TlShape::scale_ };
 }
 
-void TlShape::setShapeRefined(const QString &shape_type, const QList<QPointF> &points, const QList<int32_t> &point_labels, const cv::Mat &mask) {
+void TlShape::setShapeRefined(
+    const QString &shape_type,
+    const QList<QPointF> &points,
+    const QList<int32_t> &point_labels,
+    const cv::Mat &mask) {
     this->shape_raw_      = std::tie(this->shape_type_, this->points_, this->point_labels_);
     this->shape_type      (shape_type);
     this->points_         = points;
@@ -127,7 +129,7 @@ void TlShape::close() {
 }
 
 void TlShape::addPoint(const QPointF &point, int32_t label) {
-    if (!this->points_.empty() && point == this->points_[0]) {
+    if (!this->points_.empty() && this->points_[0] == point) {
         this->close();
     } else {
         this->points_.append(point);
@@ -135,7 +137,7 @@ void TlShape::addPoint(const QPointF &point, int32_t label) {
     }
 }
 
-bool TlShape::canAddPoint() {
+bool TlShape::canAddPoint() const {
     return QKey{"polygon", "linestrip"}.contains(this->shape_type_);
 }
 
@@ -156,7 +158,7 @@ void TlShape::insertPoint(int32_t i, const QPointF &point, int32_t label) {
     this->point_labels_.insert(i, label);
 }
 
-bool TlShape::canRemovePoint() {
+bool TlShape::canRemovePoint() const {
     if (!this->canAddPoint()) {
         return false;
     }
@@ -186,7 +188,7 @@ void TlShape::removePoint(int32_t i) {
     this->point_labels_.remove(i);
 }
 
-bool TlShape::isClosed() {
+bool TlShape::isClosed() const {
     return this->closed_;
 }
 
@@ -325,27 +327,29 @@ void TlShape::paint(QPainter &painter) {
 
 void TlShape::drawVertex(QPainterPath &path, int32_t i) {
     double d = point_size_;
-    auto shape = point_type_;
-    const auto point = scale_point(points_[i]);
-    if (i == highlightIndex_) {
-        const auto [size, type] = highlightSettings_[highlightMode_];
-        d *= size; shape = type;
+    auto vertex_shape = point_type_;
+    const auto pos  = scale_point(points_[i]);
+
+    bool is_highlighted = highlightIndex_ != None && highlightIndex_ == i;
+    if (is_highlighted) {
+        d *= highlight_sizes_[highlightMode_];
+        vertex_shape = highlight_shapes_[highlightMode_];
     }
-    if (this->highlightIndex_ != None) {
-        current_vertex_fill_color_ = hvertex_fill_color_;
-    } else {
-        current_vertex_fill_color_ = vertex_fill_color_;
-    }
-    if (shape == P_SQUARE) {
-        path.addRect(point.x() - d / 2, point.y() - d / 2, d, d);
-    } else if (shape == P_ROUND) {
-        path.addEllipse(point, d / 2.0, d / 2.0);
+    current_vertex_fill_color_ = (
+        this->highlightIndex_ != None ? hvertex_fill_color_ : vertex_fill_color_
+    );
+
+    double half = d / 2.0;
+    if (vertex_shape == P_SQUARE) {
+        path.addRect(pos .x() - half, pos .y() - half, d, d);
+    } else if (vertex_shape == P_ROUND) {
+        path.addEllipse(pos , half, half);
     } else {
         throw std::invalid_argument("unsupported vertex shape");
     }
 }
 
-int32_t TlShape::nearestVertex(QPointF point, float epsilon) {
+int32_t TlShape::nearestVertex(QPointF point, float epsilon) const {
     auto min_distance = std::numeric_limits<double>::max();
     int32_t min_i = None;
     point = QPointF(point.x() * scale_, point.y() * scale_);
@@ -360,7 +364,7 @@ int32_t TlShape::nearestVertex(QPointF point, float epsilon) {
     return min_i;
 }
 
-int32_t TlShape::nearestEdge(QPointF point, float epsilon) {
+int32_t TlShape::nearestEdge(QPointF point, float epsilon) const {
     auto min_distance = std::numeric_limits<double>::max();
     auto post_i = None;
     point = scale_point(point);
@@ -384,7 +388,7 @@ bool TlShape::containsPoint(QPointF point) {
     if (this->shape_type_ == "point") {
         if (this->points_.empty())
             return false;
-        return utils::distance(point - this->points_[0]) <= this->point_size_ / 2;
+        return utils::distance(point - this->points_[0]) <= this->point_size_ / 2.0;
     }
     if (!this->mask_.empty()) {
         const int32_t raw_y = static_cast<int32_t>(round(point.y() - this->points_[0].y()));
@@ -448,7 +452,7 @@ TlShape TlShape::copy() const {
     return *this;
 }
 
-int32_t TlShape::len() const {
+int32_t TlShape::size() const {
     return static_cast<int32_t>(points_.size());
 }
 
@@ -489,7 +493,7 @@ void TlShape::SetValue(const TlShape &shape) {
     this->mask_                       = shape.mask_;
     this->highlightIndex_             = shape.highlightIndex_;
     this->highlightMode_              = shape.highlightMode_;
-    this->highlightSettings_          = shape.highlightSettings_;
+    this->highlight_shapes_           = shape.highlight_shapes_;
     this->closed_                     = shape.closed_;
 
     this->line_color_                 = shape.line_color_;
