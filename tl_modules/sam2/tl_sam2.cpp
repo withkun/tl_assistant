@@ -210,5 +210,5 @@ cv::Mat Sam2::generate_mask_from_image_embedding(InferenceSession &session, Imag
     const auto image_h = static_cast<int32_t>(dims[2]);
     const auto image_w = static_cast<int32_t>(dims[3]);
     //(1, 3, H, W) -> (H, W)
-    return cv::Mat(image_h, image_w, CV_32FC1, x_data) > 0;
+    return cv::Mat(image_h, image_w, CV_32FC1, x_data) > 0.0;
 }

@@ -64,5 +64,11 @@ class utils {
     static QByteArray img_arr_to_data(const cv::Mat &img_data);
 
     static cv::Mat img_b64_to_arr(const std::string &b64_string);
+
+    static bool compareNat(const std::string &a, const std::string &b);
+    static bool compareFilename(const std::string &a, const std::string &b);
+
+    static QList<QString> natsorted(const QList<QString> &images);
+    static std::vector<std::string> natsorted(const std::vector<std::string> &images);
 };
 #endif //__INC_UTILS_H

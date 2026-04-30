@@ -2,6 +2,7 @@
 
 #include "base64.h"
 #include <fstream>
+#include <filesystem>
 
 #include <QMenu>
 #include <QBuffer>
@@ -384,4 +385,67 @@ void fromFile(const std::string &path, std::vector<float> &blob) {
     const size_t model_size = ifs.tellg();
     ifs.seekg(0, ifs.beg);
     ifs.read(reinterpret_cast<char *>(blob.data()), model_size);
+}
+
+// 字符串自然排序
+bool utils::compareNat(const std::string &a, const std::string &b) {
+    if (a.empty())
+        return true;
+    if (b.empty())
+        return false;
+    if (std::isdigit(a[0]) && !std::isdigit(b[0]))
+        return true;
+    if (!std::isdigit(a[0]) && std::isdigit(b[0]))
+        return false;
+    if (!std::isdigit(a[0]) && !std::isdigit(b[0])) {
+        if (std::toupper(a[0]) == std::toupper(b[0]))
+            return compareNat(a.substr(1), b.substr(1));
+        return (std::toupper(a[0]) == std::toupper(b[0]));
+    }
+
+    // Both strings begin with digit --> parse both numbers
+    std::istringstream issa(a);
+    std::istringstream issb(b);
+    int ia, ib;
+    issa >> ia;
+    issb >> ib;
+    if (ia != ib)
+        return ia < ib;
+
+    // Numbers are the same --> remove numbers and recurse
+    std::string anew, bnew;
+    std::getline(issa, anew);
+    std::getline(issb, bnew);
+    return compareNat(anew, bnew);
+}
+
+bool utils::compareFilename(const std::string &a, const std::string &b) {
+    std::filesystem::path fsa(a);
+    const auto suffix_a = fsa.extension().string();      // 包含.的后缀, 如: .json
+    const auto filename_a = fsa.replace_extension().string();
+
+    std::filesystem::path fsb(b);
+    const auto suffix_b = fsb.extension().string();      // 包含.的后缀, 如: .json
+    const auto filename_b = fsb.replace_extension().string();
+
+    if (filename_a != filename_b) {
+        return compareNat(filename_a, filename_b);
+    }
+    return compareNat(suffix_a, suffix_b);
+}
+
+QList<QString> utils::natsorted(const QList<QString> &images) {
+    std::vector<std::string> files;
+    std::ranges::for_each(images, [&files](const auto &s) { files.push_back(s.toStdString()); });
+    std::stable_sort(files.begin(), files.end(), compareFilename);
+
+    QList<QString> result;
+    std::ranges::for_each(files, [&result](const std::string &s) { result.push_back(QString::fromStdString(s)); });
+    return result;
+}
+
+std::vector<std::string> utils::natsorted(const std::vector<std::string> &images) {
+    std::vector<std::string> files = images;
+    std::stable_sort(files.begin(), files.end(), compareFilename);
+    return files;
 }

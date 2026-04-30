@@ -395,7 +395,7 @@ Shapes</source>
     </message>
     <message>
         <source>Zoom in or out of the image. Also accessible with %1 %2 and %3 from the canvas.</source>
-        <translation>放大或缩小图像；也可在画布上使用 %1 %2 与 %2。</translation>
+        <translation>放大或缩小图像；也可在画布上使用 %1 %2 与 %3。</translation>
     </message>
     <message>
         <source>Ctrl+Wheel</source>

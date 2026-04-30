@@ -2539,9 +2539,8 @@ QStringList MainWindow::scan_image_files(const QString &root_dir) const {
 
     SPDLOG_DEBUG("found {} images in {}", images.size(), root_dir);
 
-    //return natsort.os_sorted(images)
-    //return natsort.natsorted(images)
-    return images;
+    // return natsort.os_sorted(images)
+    return utils::natsorted(images);
 }
 
 //

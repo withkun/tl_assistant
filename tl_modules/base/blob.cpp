@@ -6,11 +6,10 @@
 #include "spdlog/spdlog.h"
 
 
-using fs = std::filesystem::path;
-
-Blob::Blob(const std::string &url, const std::string &hash) {
+Blob::Blob(const std::string &url, const std::string &hash, const Attach &attach) {
     url_ = url;
     hash_ = hash;
+    attachments_ = attach;
 }
 
 std::string Blob::filename() const {
